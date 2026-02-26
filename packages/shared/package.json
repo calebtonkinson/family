@@ -1,0 +1,31 @@
+{
+  "name": "@home/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./src/index.ts"
+    },
+    "./types": {
+      "import": "./dist/types/index.js",
+      "types": "./src/types/index.ts"
+    },
+    "./constants": {
+      "import": "./dist/constants.js",
+      "types": "./src/constants.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc && node ../../tooling/scripts/fix-esm-extensions.mjs dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@home/typescript-config": "workspace:*",
+    "typescript": "^5.7.3"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "name": "@home/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "yarn workspace @home/db build && yarn workspace @home/shared build && yarn workspace @home/ai build && tsx watch --env-file=.env src/index.ts",
+    "build": "tsc && node ../../tooling/scripts/fix-esm-extensions.mjs dist",
+    "start": "node --env-file=.env dist/index.js",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.33",
+    "@ai-sdk/google": "^3.0.18",
+    "@ai-sdk/openai": "^3.0.23",
+    "@dbos-inc/dbos-sdk": "^2.9.21",
+    "@home/ai": "workspace:*",
+    "@home/db": "workspace:*",
+    "@home/shared": "workspace:*",
+    "@hono/node-server": "^1.13.8",
+    "@hono/zod-openapi": "^0.18.4",
+    "ai": "^6.0.64",
+    "date-fns": "^4.1.0",
+    "drizzle-orm": "^0.38.4",
+    "hono": "^4.7.2",
+    "jose": "^5.9.6",
+    "web-push": "^3.6.7",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@home/eslint-config": "workspace:*",
+    "@home/typescript-config": "workspace:*",
+    "@types/koa": "^2.15.0",
+    "@types/node": "^22.13.1",
+    "@types/web-push": "^3.6.4",
+    "eslint": "^9.19.0",
+    "react": "^19.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

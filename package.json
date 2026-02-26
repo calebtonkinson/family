@@ -1,0 +1,31 @@
+{
+  "name": "home-management",
+  "private": true,
+  "packageManager": "yarn@4.6.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "tooling/*"
+  ],
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "lint": "turbo lint",
+    "clean": "turbo clean && rm -rf node_modules",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "typecheck": "turbo typecheck",
+    "deploy:web": "bash ./tooling/scripts/deploy-web.sh",
+    "deploy:backend": "bash ./tooling/scripts/deploy-backend.sh"
+  },
+  "devDependencies": {
+    "prettier": "^3.2.5",
+    "turbo": "^2.3.4",
+    "typescript": "^5.7.3"
+  },
+  "dependencies": {
+    "@ai-sdk/react": "^3.0.66"
+  }
+}

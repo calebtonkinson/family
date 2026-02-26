@@ -1,0 +1,6 @@
+{
+  "framework": "nextjs",
+  "installCommand": "node .yarn/releases/yarn-4.6.0.cjs install --immutable",
+  "buildCommand": "node .yarn/releases/yarn-4.6.0.cjs workspace @home/db build && node .yarn/releases/yarn-4.6.0.cjs workspace @home/shared build && node .yarn/releases/yarn-4.6.0.cjs workspace @home/web build",
+  "outputDirectory": "apps/web/.next"
+}

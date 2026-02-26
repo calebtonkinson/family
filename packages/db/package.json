@@ -1,0 +1,40 @@
+{
+  "name": "@home/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./src/index.ts"
+    },
+    "./schema": {
+      "import": "./dist/schema/index.js",
+      "types": "./src/schema/index.ts"
+    },
+    "./client": {
+      "import": "./dist/client.js",
+      "types": "./src/client.ts"
+    }
+  },
+  "scripts": {
+    "generate": "yarn build && drizzle-kit generate",
+    "migrate": "drizzle-kit migrate",
+    "push": "drizzle-kit push",
+    "studio": "drizzle-kit studio",
+    "seed": "tsx src/seed.ts",
+    "build": "tsc && node ../../tooling/scripts/fix-esm-extensions.mjs dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4",
+    "drizzle-orm": "^0.38.4"
+  },
+  "devDependencies": {
+    "@home/typescript-config": "workspace:*",
+    "drizzle-kit": "^0.30.4",
+    "next-auth": "5.0.0-beta.25",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
