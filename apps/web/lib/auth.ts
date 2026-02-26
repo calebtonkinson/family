@@ -1,4 +1,5 @@
 import NextAuth from "next-auth";
+import type { Provider } from "next-auth/providers";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
@@ -8,7 +9,7 @@ import { eq } from "drizzle-orm";
 import { ALLOWED_EMAILS } from "@home/shared";
 import * as jose from "jose";
 
-const providers = [
+const providers: Provider[] = [
   Google({
     clientId: process.env.GOOGLE_CLIENT_ID!,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
