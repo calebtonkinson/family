@@ -29,44 +29,7 @@ if (process.env.DEV_LOGIN_ENABLED === "true") {
         const email = credentials?.email as string | undefined;
         const password = credentials?.password as string | undefined;
         if (!email || password !== process.env.DEV_LOGIN_PASSWORD) return null;
-
-        const [existing] = await db
-          .select()
-          .from(users)
-          .where(eq(users.email, email))
-          .limit(1);
-
-        if (existing) {
-          return { id: existing.id, email: existing.email, name: existing.name };
-        }
-
-        const [household] = await db.select().from(households).limit(1);
-        let householdId: string;
-        if (household) {
-          householdId = household.id;
-        } else {
-          const [h] = await db.insert(households).values({ name: "My Household" }).returning();
-          if (!h) return null;
-          householdId = h.id;
-        }
-
-        const nameParts = email.split("@")[0]!.split(".");
-        const [fm] = await db.insert(familyMembers).values({
-          householdId,
-          firstName: nameParts[0] || "Dev",
-          lastName: nameParts.slice(1).join(" ") || "User",
-        }).returning();
-        if (!fm) return null;
-
-        const [newUser] = await db.insert(users).values({
-          householdId,
-          familyMemberId: fm.id,
-          email,
-          name: nameParts.join(" "),
-        }).returning();
-        if (!newUser) return null;
-
-        return { id: newUser.id, email: newUser.email, name: newUser.name };
+        return { id: email, email, name: email.split("@")[0] };
       },
     })
   );
