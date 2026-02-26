@@ -26,6 +26,10 @@ Shared packages: `@home/db` (Drizzle ORM / Neon), `@home/shared` (types/constant
 - **Google OAuth** credentials are required for login (set `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`). Without them, the login page loads but auth won't work.
 - **Lint/typecheck/build**: `yarn lint`, `yarn typecheck`, `yarn build` from root. No automated tests exist in the codebase.
 
+### Dev login
+
+A credentials-based login is available for local development (gated behind `DEV_LOGIN_ENABLED=true` in `apps/web/.env.local`). Use any email with password `devpass123` (or whatever `DEV_LOGIN_PASSWORD` is set to). The login page will show both Google OAuth and a Dev Login form. A user, household, and family member are auto-created on first sign-in.
+
 ### Starting services
 
 ```bash
@@ -38,10 +42,8 @@ sleep 3
 sudo docker start neon-proxy
 
 # 3. Start backend (port 3001)
-cd /workspace/apps/server
-NODE_OPTIONS="--import=/workspace/neon-local-config.mjs" npx tsx watch --env-file=.env src/index.ts &
+cd /workspace/apps/server && npx tsx watch --env-file=.env src/index.ts &
 
 # 4. Start frontend (port 3000)
-cd /workspace
-NODE_OPTIONS="--import=/workspace/neon-local-config.mjs" yarn workspace @home/web dev &
+cd /workspace && yarn workspace @home/web dev &
 ```
