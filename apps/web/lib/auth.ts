@@ -1,11 +1,76 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
+import Credentials from "next-auth/providers/credentials";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { db } from "@home/db";
 import { users, accounts, sessions, verificationTokens, households, familyMembers } from "@home/db/schema";
 import { eq } from "drizzle-orm";
 import { ALLOWED_EMAILS } from "@home/shared";
 import * as jose from "jose";
+
+const providers = [
+  Google({
+    clientId: process.env.GOOGLE_CLIENT_ID!,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    allowDangerousEmailAccountLinking: true,
+  }),
+];
+
+if (process.env.DEV_LOGIN_ENABLED === "true") {
+  providers.push(
+    Credentials({
+      id: "dev-credentials",
+      name: "Dev Login",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        const email = credentials?.email as string | undefined;
+        const password = credentials?.password as string | undefined;
+        if (!email || password !== process.env.DEV_LOGIN_PASSWORD) return null;
+
+        const [existing] = await db
+          .select()
+          .from(users)
+          .where(eq(users.email, email))
+          .limit(1);
+
+        if (existing) {
+          return { id: existing.id, email: existing.email, name: existing.name };
+        }
+
+        const [household] = await db.select().from(households).limit(1);
+        let householdId: string;
+        if (household) {
+          householdId = household.id;
+        } else {
+          const [h] = await db.insert(households).values({ name: "My Household" }).returning();
+          if (!h) return null;
+          householdId = h.id;
+        }
+
+        const nameParts = email.split("@")[0]!.split(".");
+        const [fm] = await db.insert(familyMembers).values({
+          householdId,
+          firstName: nameParts[0] || "Dev",
+          lastName: nameParts.slice(1).join(" ") || "User",
+        }).returning();
+        if (!fm) return null;
+
+        const [newUser] = await db.insert(users).values({
+          householdId,
+          familyMemberId: fm.id,
+          email,
+          name: nameParts.join(" "),
+        }).returning();
+        if (!newUser) return null;
+
+        return { id: newUser.id, email: newUser.email, name: newUser.name };
+      },
+    })
+  );
+}
 
 const authConfig = NextAuth({
   adapter: DrizzleAdapter(db, {
@@ -14,20 +79,13 @@ const authConfig = NextAuth({
     sessionsTable: sessions,
     verificationTokensTable: verificationTokens,
   }),
-  providers: [
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      // Allow linking to existing users created by seed
-      allowDangerousEmailAccountLinking: true,
-    }),
-  ],
+  providers,
   session: {
     strategy: "jwt",
   },
   callbacks: {
-    async signIn({ user }) {
-      // Only allow specific email addresses
+    async signIn({ user, account }) {
+      if (account?.provider === "dev-credentials") return true;
       if (!user.email || !ALLOWED_EMAILS.includes(user.email as typeof ALLOWED_EMAILS[number])) {
         return false;
       }

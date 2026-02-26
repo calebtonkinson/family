@@ -2,6 +2,9 @@ import { redirect } from "next/navigation";
 import { auth, signIn } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 
 export default async function LoginPage({
   searchParams,
@@ -16,6 +19,7 @@ export default async function LoginPage({
   }
 
   const error = params?.error;
+  const devLoginEnabled = process.env.DEV_LOGIN_ENABLED === "true";
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
@@ -29,7 +33,9 @@ export default async function LoginPage({
             <div className="rounded-md bg-destructive/10 p-3 text-center text-sm text-destructive">
               {error === "AccessDenied"
                 ? "Access denied. This email is not authorized."
-                : "An error occurred. Please try again."}
+                : error === "CredentialsSignin"
+                  ? "Invalid email or password."
+                  : "An error occurred. Please try again."}
             </div>
           )}
           <form
@@ -43,6 +49,39 @@ export default async function LoginPage({
               Sign in with Google
             </Button>
           </form>
+          {devLoginEnabled && (
+            <>
+              <div className="relative">
+                <Separator />
+                <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
+                  or
+                </span>
+              </div>
+              <form
+                action={async (formData: FormData) => {
+                  "use server";
+                  await signIn("dev-credentials", {
+                    email: formData.get("email") as string,
+                    password: formData.get("password") as string,
+                    redirectTo: "/dashboard",
+                  });
+                }}
+                className="space-y-3"
+              >
+                <div className="space-y-1">
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" name="email" type="email" placeholder="dev@example.com" required />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="password">Password</Label>
+                  <Input id="password" name="password" type="password" placeholder="Dev password" required />
+                </div>
+                <Button type="submit" variant="outline" className="w-full" size="lg">
+                  Dev Login
+                </Button>
+              </form>
+            </>
+          )}
           <p className="text-center text-xs text-muted-foreground">
             Only authorized family members can sign in.
           </p>
