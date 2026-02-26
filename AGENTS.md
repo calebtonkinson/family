@@ -28,7 +28,56 @@ Shared packages: `@home/db` (Drizzle ORM / Neon), `@home/shared` (types/constant
 
 ### Dev login
 
-A credentials-based login is available for local development (gated behind `DEV_LOGIN_ENABLED=true` in `apps/web/.env.local`). Use any email with password `devpass123` (or whatever `DEV_LOGIN_PASSWORD` is set to). The login page will show both Google OAuth and a Dev Login form. A user, household, and family member are auto-created on first sign-in.
+A credentials-based login provider bypasses Google OAuth for local development. It is controlled by two env vars in `apps/web/.env.local`:
+
+| Env var | Purpose | Default |
+|---|---|---|
+| `DEV_LOGIN_ENABLED` | Set to `true` to show the dev login form | `false` (disabled) |
+| `DEV_LOGIN_PASSWORD` | Shared password for all dev logins | (none) |
+
+When enabled, the login page (`/login`) renders a "Dev Login" form below the Google button with email and password fields.
+
+**How it works:**
+- Enter any email address and the configured `DEV_LOGIN_PASSWORD`.
+- On first login with a new email, the JWT callback auto-creates a household, family member, and user row in the database. Subsequent logins with the same email reuse the existing user.
+- The `signIn` callback skips the `ALLOWED_EMAILS` check for `dev-credentials` logins, so any email works.
+- The session and access-token generation is identical to the Google OAuth path — the backend API cannot distinguish dev logins from real ones.
+
+**Browser testing (computerUse / manual):**
+1. Navigate to `http://localhost:3000/login`.
+2. Type an email (e.g. `dev@example.com`) and the dev password (`devpass123`).
+3. Click "Dev Login". After redirect you land on `/dashboard`.
+
+**API testing (curl / scripts):**
+Generate a JWT matching the `NEXTAUTH_SECRET` and pass it as a Bearer token. Example:
+
+```bash
+TOKEN=$(node -e "
+const jose = require('jose');
+(async () => {
+  const secret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET || 'LQGgNuqIjDQSOT1IINndh5weI6SF4wbHOs5oeIouEIg=');
+  const jwt = await new jose.SignJWT({
+    email: 'dev@example.com',
+    userId: '<uuid from users table>',
+    householdId: '<uuid from households table>'
+  }).setProtectedHeader({ alg: 'HS256' }).setIssuedAt().setExpirationTime('1h').sign(secret);
+  console.log(jwt);
+})();
+")
+curl -s http://localhost:3001/api/tasks -H "Authorization: Bearer $TOKEN"
+```
+
+To find the user/household UUIDs after a dev login:
+
+```bash
+PGPASSWORD=homepass psql -h localhost -U homeuser -d home_management \
+  -c "SELECT u.id AS user_id, u.household_id, u.email FROM users u;"
+```
+
+**Important notes:**
+- The dev login provider is defined in `apps/web/lib/auth.ts` and is only registered when `DEV_LOGIN_ENABLED === "true"`. It is **not** compiled into the app when the flag is absent or `false`.
+- After making changes to `auth.ts` or the login page, clear the Next.js cache (`rm -rf apps/web/.next`) and restart the dev server, otherwise stale server-action hashes cause `UnrecognizedActionError`.
+- Google OAuth credentials (`GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`) are still placeholders in the local `.env.local` — the Google button will fail, but dev login works independently.
 
 ### Starting services
 
