@@ -393,7 +393,7 @@ export function Chat({
     <div className="flex h-full min-h-0 flex-col">
       {/* Messages */}
       <ScrollArea ref={scrollRef} className="flex-1 min-h-0 min-w-0">
-        <div className="mx-auto w-full max-w-3xl space-y-4 px-4 py-4">
+        <div className="mx-auto w-full max-w-3xl space-y-4 px-4 py-4 lg:max-w-5xl">
           {messages.map((message) => {
             const textContent = getMessageText(message);
             const toolParts = getToolParts(message);
@@ -436,7 +436,7 @@ export function Chat({
                           <ToolInvocationCard
                             key={normalizedTool.id}
                             tool={normalizedTool}
-                            className="w-full max-w-full sm:max-w-[85%]"
+                            className="w-full max-w-full sm:max-w-[88%] lg:max-w-[92%]"
                           />
                         );
                       })}
@@ -469,7 +469,7 @@ export function Chat({
                     </Avatar>
                     <Card
                       className={cn(
-                        "w-full min-w-0 max-w-[80%] overflow-x-hidden break-words px-4 py-3 space-y-3",
+                        "w-full min-w-0 max-w-[80%] overflow-x-hidden break-words px-4 py-3 space-y-3 lg:max-w-[90%]",
                         message.role === "user" &&
                           "bg-primary text-primary-foreground border-primary/50 shadow-md",
                         message.role !== "user" &&
