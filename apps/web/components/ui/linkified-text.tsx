@@ -8,8 +8,8 @@ function splitTrailingPunctuation(candidate: string) {
   let trailingText = "";
 
   while (urlPart.length > 0) {
-    const lastChar = urlPart[urlPart.length - 1];
-    if (!TRAILING_PUNCTUATION.has(lastChar)) {
+    const lastChar = urlPart.at(-1);
+    if (!lastChar || !TRAILING_PUNCTUATION.has(lastChar)) {
       break;
     }
 
