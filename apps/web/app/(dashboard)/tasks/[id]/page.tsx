@@ -67,6 +67,7 @@ import {
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import type { Components } from "react-markdown";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -83,6 +84,7 @@ import {
   type ChatToolInvocation,
 } from "@/components/chat/tool-invocation-card";
 import { LinkifiedText } from "@/components/ui/linkified-text";
+import { LinkPreviewCards } from "@/components/ui/link-preview-cards";
 
 interface TaskPageProps {
   params: Promise<{ id: string }>;
@@ -101,6 +103,20 @@ interface MentionContext {
   start: number;
   end: number;
 }
+
+const markdownComponents: Components = {
+  a: ({ className, ...props }) => (
+    <a
+      {...props}
+      target="_blank"
+      rel="noreferrer noopener"
+      className={cn(
+        "text-primary underline decoration-primary/60 underline-offset-2 transition-colors hover:text-primary/80",
+        className,
+      )}
+    />
+  ),
+};
 
 function createMentionHandle(rawValue: string): string {
   const normalized = rawValue
@@ -1045,8 +1061,14 @@ export default function TaskPage({ params }: TaskPageProps) {
                       "prose-code:text-foreground [&_p]:break-words [&_li]:break-words [&_a]:break-all [&_pre_code]:whitespace-pre-wrap [&_pre_code]:break-all [&_pre_code]:[overflow-wrap:anywhere]",
                       comment.isAiGenerated ? "text-foreground" : "text-muted-foreground"
                     )}>
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{comment.content}</ReactMarkdown>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={markdownComponents}
+                      >
+                        {comment.content}
+                      </ReactMarkdown>
                     </div>
+                    <LinkPreviewCards text={comment.content} />
                     {comment.isAiGenerated && comment.conversationId && (
                       <Button
                         variant="ghost"
@@ -1139,7 +1161,12 @@ function ConversationThread({
                 "prose-pre:max-w-full prose-pre:overflow-x-auto prose-pre:whitespace-pre-wrap prose-pre:break-words prose-pre:[overflow-wrap:anywhere] prose-pre:bg-muted prose-pre:text-foreground",
                 "prose-code:text-foreground [&_p]:break-words [&_li]:break-words [&_a]:break-all [&_pre_code]:whitespace-pre-wrap [&_pre_code]:break-all [&_pre_code]:[overflow-wrap:anywhere]"
               )}>
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={markdownComponents}
+                >
+                  {message.content}
+                </ReactMarkdown>
               </div>
             </div>
           )}
