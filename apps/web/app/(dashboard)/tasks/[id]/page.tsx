@@ -66,6 +66,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1044,7 +1045,7 @@ export default function TaskPage({ params }: TaskPageProps) {
                       "prose-code:text-foreground [&_p]:break-words [&_li]:break-words [&_a]:break-all [&_pre_code]:whitespace-pre-wrap [&_pre_code]:break-all [&_pre_code]:[overflow-wrap:anywhere]",
                       comment.isAiGenerated ? "text-foreground" : "text-muted-foreground"
                     )}>
-                      <ReactMarkdown>{comment.content}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{comment.content}</ReactMarkdown>
                     </div>
                     {comment.isAiGenerated && comment.conversationId && (
                       <Button
@@ -1138,7 +1139,7 @@ function ConversationThread({
                 "prose-pre:max-w-full prose-pre:overflow-x-auto prose-pre:whitespace-pre-wrap prose-pre:break-words prose-pre:[overflow-wrap:anywhere] prose-pre:bg-muted prose-pre:text-foreground",
                 "prose-code:text-foreground [&_p]:break-words [&_li]:break-words [&_a]:break-all [&_pre_code]:whitespace-pre-wrap [&_pre_code]:break-all [&_pre_code]:[overflow-wrap:anywhere]"
               )}>
-                <ReactMarkdown>{message.content}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
               </div>
             </div>
           )}
