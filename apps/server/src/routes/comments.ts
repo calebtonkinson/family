@@ -230,20 +230,18 @@ commentsRouter.openapi(createCommentRoute, async (c) => {
       const mentionNotificationBody = `${commenterName} mentioned you on "${task.title}"`;
 
       await Promise.allSettled(
-        mentionedUsers
-          .filter((mentionedUser) => mentionedUser.id !== auth.userId)
-          .map((mentionedUser) =>
-            NotificationService.sendUserNotification(mentionedUser.id, {
-              title: mentionNotificationTitle,
-              body: mentionNotificationBody,
-              url: `/tasks/${task.id}`,
-              data: {
-                type: "task_mention",
-                taskId: task.id,
-                commentId: comment.id,
-              },
-            }),
-          ),
+        mentionedUsers.map((mentionedUser) =>
+          NotificationService.sendUserNotification(mentionedUser.id, {
+            title: mentionNotificationTitle,
+            body: mentionNotificationBody,
+            url: `/tasks/${task.id}`,
+            data: {
+              type: "task_mention",
+              taskId: task.id,
+              commentId: comment.id,
+            },
+          }),
+        ),
       );
     }
   }
