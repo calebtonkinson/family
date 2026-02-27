@@ -45,7 +45,17 @@ function isListDetailResponse(value: unknown): value is ListDetailResponse {
 }
 
 function isPinnedListsResponse(value: unknown): value is PinnedListsResponse {
-  return isRecord(value) && Array.isArray(value.data) && value.data.every((item) => isRecord(item));
+  return (
+    isRecord(value) &&
+    Array.isArray(value.data) &&
+    value.data.every(
+      (item) =>
+        isRecord(item) &&
+        typeof item.pinId === "string" &&
+        typeof item.position === "number" &&
+        Array.isArray(item.items),
+    )
+  );
 }
 
 function parseListParams(queryKey: QueryKey): ListsParams | undefined {
@@ -386,15 +396,15 @@ export function useAddListItem(listId: string) {
 
         if (isPinnedListsResponse(existing)) {
           queryClient.setQueryData<PinnedListsResponse>(queryKey, {
-            data: existing.data.map((list) =>
-              list.id === listId
-                ? {
-                    ...list,
-                    items: [...list.items, optimisticItem],
-                    updatedAt: now,
-                  }
-                : list,
-            ),
+            data: existing.data.map((list) => {
+              if (list.id !== listId || !Array.isArray((list as PinnedList).items))
+                return list;
+              return {
+                ...list,
+                items: [...(list as PinnedList).items, optimisticItem],
+                updatedAt: now,
+              };
+            }),
           });
         }
       });
@@ -446,18 +456,18 @@ export function useUpdateListItem(listId: string) {
 
         if (isPinnedListsResponse(existing)) {
           queryClient.setQueryData<PinnedListsResponse>(queryKey, {
-            data: existing.data.map((list) =>
-              list.id === listId
-                ? {
-                    ...list,
-                    items: list.items.map((item) =>
-                      item.id === itemId
-                        ? applyListItemUpdate(item, data)
-                        : item,
-                    ),
-                  }
-                : list,
-            ),
+            data: existing.data.map((list) => {
+              if (list.id !== listId || !Array.isArray((list as PinnedList).items))
+                return list;
+              return {
+                ...list,
+                items: (list as PinnedList).items.map((item) =>
+                  item.id === itemId
+                    ? applyListItemUpdate(item, data)
+                    : item,
+                ),
+              };
+            }),
           });
         }
       });
@@ -499,14 +509,14 @@ export function useDeleteListItem(listId: string) {
 
         if (isPinnedListsResponse(existing)) {
           queryClient.setQueryData<PinnedListsResponse>(queryKey, {
-            data: existing.data.map((list) =>
-              list.id === listId
-                ? {
-                    ...list,
-                    items: list.items.filter((item) => item.id !== itemId),
-                  }
-                : list,
-            ),
+            data: existing.data.map((list) => {
+              if (list.id !== listId || !Array.isArray((list as PinnedList).items))
+                return list;
+              return {
+                ...list,
+                items: (list as PinnedList).items.filter((item) => item.id !== itemId),
+              };
+            }),
           });
         }
       });
@@ -612,18 +622,18 @@ export function useMarkOffListItem() {
 
         if (isPinnedListsResponse(existing)) {
           queryClient.setQueryData<PinnedListsResponse>(queryKey, {
-            data: existing.data.map((list) =>
-              list.id === listId
-                ? {
-                    ...list,
-                    items: list.items.map((item) =>
-                      item.id === itemId
-                        ? applyListItemUpdate(item, { markedOff })
-                        : item,
-                    ),
-                  }
-                : list,
-            ),
+            data: existing.data.map((list) => {
+              if (list.id !== listId || !Array.isArray((list as PinnedList).items))
+                return list;
+              return {
+                ...list,
+                items: (list as PinnedList).items.map((item) =>
+                  item.id === itemId
+                    ? applyListItemUpdate(item, { markedOff })
+                    : item,
+                ),
+              };
+            }),
           });
         }
       });

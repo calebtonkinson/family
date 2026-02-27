@@ -1,21 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ChevronRight, List } from "lucide-react";
-import { cn } from "@/lib/utils";
 import type { PinnedList } from "@/lib/api-client";
 
 interface PinnedListCardProps {
   list: PinnedList;
-  onToggleItem?: (listId: string, itemId: string, markedOff: boolean) => void;
   compact?: boolean;
 }
 
 export function PinnedListCard({
   list,
-  onToggleItem,
   compact = false,
 }: PinnedListCardProps) {
   const activeItems = list.items.filter((i) => !i.markedOffAt);
@@ -39,32 +35,8 @@ export function PinnedListCard({
           ) : (
             <ul className="space-y-1">
               {displayItems.map((item) => (
-                <li
-                  key={item.id}
-                  className={cn(
-                    "flex items-center gap-2 text-sm",
-                    onToggleItem && "cursor-pointer"
-                  )}
-                  onClick={(e) => {
-                    if (onToggleItem) {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onToggleItem(list.id, item.id, true);
-                    }
-                  }}
-                >
-                  {onToggleItem ? (
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <Checkbox
-                        checked={false}
-                        onCheckedChange={() =>
-                          onToggleItem(list.id, item.id, true)
-                        }
-                      />
-                    </div>
-                  ) : (
-                    <span className="w-4 h-4 shrink-0 rounded border border-muted" />
-                  )}
+                <li key={item.id} className="flex items-center gap-2 text-sm">
+                  <span className="w-4 h-4 shrink-0 rounded border border-muted" />
                   <span className="truncate">{item.content}</span>
                 </li>
               ))}
