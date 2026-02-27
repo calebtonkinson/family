@@ -1052,21 +1052,6 @@ listsRouter.openapi(deleteListItemRoute, async (c) => {
   const auth = c.get("auth");
   const { id, itemId } = c.req.valid("param");
 
-  // #region agent log
-  try {
-    require("fs").appendFileSync(
-      "/opt/cursor/logs/debug.log",
-      JSON.stringify({
-        location: "lists.ts:deleteListItem:entry",
-        message: "Delete list item request",
-        data: { userId: auth.userId, householdId: auth.householdId, listId: id, itemId },
-        timestamp: Date.now(),
-        hypothesisId: "H1",
-      }) + "\n"
-    );
-  } catch (_) {}
-  // #endregion
-
   const [list] = await db
     .select()
     .from(lists)
@@ -1079,36 +1064,7 @@ listsRouter.openapi(deleteListItemRoute, async (c) => {
     )
     .limit(1);
 
-  // #region agent log
-  try {
-    require("fs").appendFileSync(
-      "/opt/cursor/logs/debug.log",
-      JSON.stringify({
-        location: "lists.ts:deleteListItem:afterListCheck",
-        message: "List access check result",
-        data: { listFound: !!list, listCreatedById: list?.createdById ?? null },
-        timestamp: Date.now(),
-        hypothesisId: "H1",
-      }) + "\n"
-    );
-  } catch (_) {}
-  // #endregion
-
   if (!list) {
-    // #region agent log
-    try {
-      require("fs").appendFileSync(
-        "/opt/cursor/logs/debug.log",
-        JSON.stringify({
-          location: "lists.ts:deleteListItem:404",
-          message: "List not found - access denied or missing",
-          data: { listId: id, itemId },
-          timestamp: Date.now(),
-          hypothesisId: "H1",
-        }) + "\n"
-      );
-    } catch (_) {}
-    // #endregion
     return c.json({ error: "List not found" }, 404);
   }
 
@@ -1122,36 +1078,7 @@ listsRouter.openapi(deleteListItemRoute, async (c) => {
     )
     .returning({ id: listItems.id });
 
-  // #region agent log
-  try {
-    require("fs").appendFileSync(
-      "/opt/cursor/logs/debug.log",
-      JSON.stringify({
-        location: "lists.ts:deleteListItem:afterDelete",
-        message: "Delete item result",
-        data: { itemDeleted: !!deletedItem },
-        timestamp: Date.now(),
-        hypothesisId: "H2",
-      }) + "\n"
-    );
-  } catch (_) {}
-  // #endregion
-
   if (!deletedItem) {
-    // #region agent log
-    try {
-      require("fs").appendFileSync(
-        "/opt/cursor/logs/debug.log",
-        JSON.stringify({
-          location: "lists.ts:deleteListItem:404",
-          message: "Item not found - no row deleted",
-          data: { listId: id, itemId },
-          timestamp: Date.now(),
-          hypothesisId: "H2",
-        }) + "\n"
-      );
-    } catch (_) {}
-    // #endregion
     return c.json({ error: "Item not found" }, 404);
   }
 
