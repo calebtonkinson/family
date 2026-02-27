@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { use } from "react";
 import { format, formatDistanceToNow, isPast, isToday, isTomorrow } from "date-fns";
@@ -72,7 +72,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { ToolResult, ConversationMessage } from "@/lib/api-client";
+import type {
+  ToolResult,
+  ConversationMessage,
+  FamilyMember,
+} from "@/lib/api-client";
 import {
   ToolInvocationCard,
   type ChatToolInvocation,
@@ -82,6 +86,104 @@ interface TaskPageProps {
   params: Promise<{ id: string }>;
 }
 
+interface MentionOption {
+  id: string;
+  type: "member" | "ai";
+  label: string;
+  handle: string;
+  familyMemberId?: string;
+}
+
+interface MentionContext {
+  query: string;
+  start: number;
+  end: number;
+}
+
+function createMentionHandle(rawValue: string): string {
+  const normalized = rawValue
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return normalized || "member";
+}
+
+function buildMentionOptions(members: FamilyMember[]): MentionOption[] {
+  const usedHandles = new Set<string>(["ai"]);
+  const memberOptions = members
+    .map((member) => {
+      const label = `${member.firstName} ${member.lastName ?? ""}`.trim();
+      const baseHandle = createMentionHandle(label || member.firstName || member.id);
+      let handle = baseHandle;
+      let suffix = 1;
+      while (usedHandles.has(handle)) {
+        handle = `${baseHandle}-${suffix}`;
+        suffix += 1;
+      }
+      usedHandles.add(handle);
+
+      return {
+        id: member.id,
+        type: "member" as const,
+        label,
+        handle,
+        familyMemberId: member.id,
+      };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  return [
+    {
+      id: "ai-assistant",
+      type: "ai",
+      label: "AI Assistant",
+      handle: "ai",
+    },
+    ...memberOptions,
+  ];
+}
+
+function getMentionContext(content: string, caretPosition: number | null): MentionContext | null {
+  if (caretPosition === null) return null;
+  const textBeforeCaret = content.slice(0, caretPosition);
+  const mentionMatch = textBeforeCaret.match(/(?:^|\s)@([a-z0-9._-]*)$/i);
+  if (!mentionMatch) return null;
+
+  const query = mentionMatch[1] ?? "";
+  return {
+    query: query.toLowerCase(),
+    start: caretPosition - query.length - 1,
+    end: caretPosition,
+  };
+}
+
+function extractMentionTargets(content: string, options: MentionOption[]) {
+  const mentionMatches = content.match(/@([a-z0-9._-]+)/gi) ?? [];
+  const mentionedHandles = new Set(
+    mentionMatches.map((match) => match.slice(1).toLowerCase()),
+  );
+
+  const mentionedFamilyMemberIds = new Set<string>();
+  let hasAiMention = mentionedHandles.has("ai");
+
+  for (const option of options) {
+    if (!mentionedHandles.has(option.handle.toLowerCase())) continue;
+    if (option.type === "ai") {
+      hasAiMention = true;
+      continue;
+    }
+    if (option.familyMemberId) {
+      mentionedFamilyMemberIds.add(option.familyMemberId);
+    }
+  }
+
+  return {
+    mentionedFamilyMemberIds: Array.from(mentionedFamilyMemberIds),
+    hasAiMention,
+  };
+}
+
 export default function TaskPage({ params }: TaskPageProps) {
   const { id } = use(params);
   const router = useRouter();
@@ -89,6 +191,9 @@ export default function TaskPage({ params }: TaskPageProps) {
   const backHref = searchParams.get("from") || "/tasks";
   const [isEditing, setIsEditing] = useState(false);
   const [newComment, setNewComment] = useState("");
+  const commentInputRef = useRef<HTMLTextAreaElement>(null);
+  const [mentionContext, setMentionContext] = useState<MentionContext | null>(null);
+  const [activeMentionIndex, setActiveMentionIndex] = useState(0);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [aiProcessingStartTime, setAiProcessingStartTime] = useState<number | null>(null);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
@@ -106,6 +211,34 @@ export default function TaskPage({ params }: TaskPageProps) {
   const { data: themesData } = useThemes();
   const { data: projectsData } = useProjects();
   const { data: familyData } = useFamilyMembers();
+  const mentionOptions = useMemo(
+    () => buildMentionOptions(familyData?.data ?? []),
+    [familyData?.data],
+  );
+  const mentionSuggestions = useMemo(() => {
+    if (!mentionContext) return [];
+    const query = mentionContext.query.trim();
+    const filtered = query
+      ? mentionOptions.filter((option) => {
+          const handle = option.handle.toLowerCase();
+          const label = option.label.toLowerCase();
+          return handle.includes(query) || label.includes(query);
+        })
+      : mentionOptions;
+
+    return filtered.slice(0, 8);
+  }, [mentionContext, mentionOptions]);
+  const isMentionMenuOpen = mentionContext !== null && mentionSuggestions.length > 0;
+
+  useEffect(() => {
+    setActiveMentionIndex(0);
+  }, [mentionContext?.query]);
+
+  useEffect(() => {
+    if (activeMentionIndex >= mentionSuggestions.length) {
+      setActiveMentionIndex(0);
+    }
+  }, [activeMentionIndex, mentionSuggestions.length]);
   
   // Stop polling when we get a real AI response (not the "On it!" acknowledgment)
   useEffect(() => {
@@ -208,12 +341,19 @@ export default function TaskPage({ params }: TaskPageProps) {
   const handleAddComment = async () => {
     if (!newComment.trim()) return;
 
-    // Check if @ai is mentioned
-    const hasAiMention = /@ai\b/i.test(newComment);
+    const { mentionedFamilyMemberIds, hasAiMention } = extractMentionTargets(
+      newComment,
+      mentionOptions,
+    );
 
     try {
-      await createComment.mutateAsync({ taskId: id, content: newComment });
+      await createComment.mutateAsync({
+        taskId: id,
+        content: newComment,
+        mentionedFamilyMemberIds,
+      });
       setNewComment("");
+      setMentionContext(null);
       
       // Start polling for AI response
       if (hasAiMention) {
@@ -231,6 +371,29 @@ export default function TaskPage({ params }: TaskPageProps) {
     } catch {
       toast({ title: "Error", description: "Failed to delete comment", variant: "destructive" });
     }
+  };
+
+  const updateMentionContext = (content: string, caretPosition: number | null) => {
+    const nextContext = getMentionContext(content, caretPosition);
+    setMentionContext(nextContext);
+  };
+
+  const insertMention = (option: MentionOption) => {
+    if (!mentionContext) return;
+    const beforeMention = newComment.slice(0, mentionContext.start);
+    const afterMention = newComment.slice(mentionContext.end);
+    const insertion = `@${option.handle} `;
+    const nextComment = `${beforeMention}${insertion}${afterMention}`;
+    setNewComment(nextComment);
+    setMentionContext(null);
+
+    requestAnimationFrame(() => {
+      const textarea = commentInputRef.current;
+      if (!textarea) return;
+      const nextCaretPosition = beforeMention.length + insertion.length;
+      textarea.focus();
+      textarea.setSelectionRange(nextCaretPosition, nextCaretPosition);
+    });
   };
 
   if (isLoading) {
@@ -689,24 +852,108 @@ export default function TaskPage({ params }: TaskPageProps) {
           {/* Comment Input */}
           <div className="space-y-2 mb-4">
             <div className="flex gap-2">
-              <Textarea
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Add a comment... (use @ai to get AI help)"
-                rows={2}
-                className="flex-1 resize-none text-sm"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                    handleAddComment();
-                  }
-                }}
-              />
+              <div className="relative flex-1">
+                <Textarea
+                  ref={commentInputRef}
+                  value={newComment}
+                  onChange={(e) => {
+                    const content = e.target.value;
+                    setNewComment(content);
+                    updateMentionContext(content, e.target.selectionStart);
+                  }}
+                  onClick={(e) => {
+                    updateMentionContext(e.currentTarget.value, e.currentTarget.selectionStart);
+                  }}
+                  onKeyUp={(e) => {
+                    updateMentionContext(e.currentTarget.value, e.currentTarget.selectionStart);
+                  }}
+                  placeholder="Add a comment... (type @ to mention AI or family)"
+                  rows={2}
+                  className="flex-1 resize-none text-sm"
+                  onKeyDown={(e) => {
+                    if (isMentionMenuOpen) {
+                      if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        setActiveMentionIndex((prev) =>
+                          prev + 1 >= mentionSuggestions.length ? 0 : prev + 1,
+                        );
+                        return;
+                      }
+                      if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        setActiveMentionIndex((prev) =>
+                          prev - 1 < 0 ? mentionSuggestions.length - 1 : prev - 1,
+                        );
+                        return;
+                      }
+                      if (e.key === "Enter" || e.key === "Tab") {
+                        e.preventDefault();
+                        const selectedMention = mentionSuggestions[activeMentionIndex];
+                        if (selectedMention) {
+                          insertMention(selectedMention);
+                        }
+                        return;
+                      }
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        setMentionContext(null);
+                        return;
+                      }
+                    }
+
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                      e.preventDefault();
+                      handleAddComment();
+                    }
+                  }}
+                />
+                {isMentionMenuOpen && (
+                  <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-md border bg-popover shadow-md">
+                    <div className="max-h-48 overflow-y-auto p-1">
+                      {mentionSuggestions.map((option, index) => (
+                        <button
+                          type="button"
+                          key={option.id}
+                          className={cn(
+                            "flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-sm",
+                            index === activeMentionIndex
+                              ? "bg-muted"
+                              : "hover:bg-muted/60",
+                          )}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            insertMention(option);
+                          }}
+                        >
+                          <span className="flex items-center gap-2">
+                            {option.type === "ai" ? (
+                              <Bot className="h-4 w-4 text-primary" />
+                            ) : (
+                              <User className="h-4 w-4 text-muted-foreground" />
+                            )}
+                            <span>{option.label}</span>
+                          </span>
+                          <span className="text-xs text-muted-foreground">@{option.handle}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
               <div className="flex flex-col gap-1 self-end">
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => {
-                    setNewComment((prev) => (prev.trim() ? `${prev} @ai ` : "@ai "));
+                    const nextComment = newComment.trim() ? `${newComment} @ai ` : "@ai ";
+                    setNewComment(nextComment);
+                    setMentionContext(null);
+                    requestAnimationFrame(() => {
+                      const textarea = commentInputRef.current;
+                      if (!textarea) return;
+                      textarea.focus();
+                      textarea.setSelectionRange(nextComment.length, nextComment.length);
+                    });
                   }}
                   className="gap-1"
                   title="Ask AI for help"

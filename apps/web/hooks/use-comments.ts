@@ -16,8 +16,19 @@ export function useCreateComment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ taskId, content }: { taskId: string; content: string }) =>
-      apiClient.createComment(taskId, content),
+    mutationFn: ({
+      taskId,
+      content,
+      mentionedFamilyMemberIds,
+    }: {
+      taskId: string;
+      content: string;
+      mentionedFamilyMemberIds?: string[];
+    }) =>
+      apiClient.createComment(taskId, {
+        content,
+        mentionedFamilyMemberIds,
+      }),
     onSuccess: (_, { taskId }) => {
       queryClient.invalidateQueries({ queryKey: ["comments", taskId] });
     },

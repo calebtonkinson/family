@@ -342,10 +342,13 @@ class ApiClient {
     return this.request<{ data: Comment[] }>(`/tasks/${taskId}/comments`);
   }
 
-  async createComment(taskId: string, content: string) {
+  async createComment(
+    taskId: string,
+    data: { content: string; mentionedFamilyMemberIds?: string[] },
+  ) {
     return this.request<{ data: Comment }>(`/tasks/${taskId}/comments`, {
       method: "POST",
-      body: JSON.stringify({ content }),
+      body: JSON.stringify(data),
     });
   }
 
