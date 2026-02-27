@@ -81,6 +81,7 @@ import {
   ToolInvocationCard,
   type ChatToolInvocation,
 } from "@/components/chat/tool-invocation-card";
+import { LinkifiedText } from "@/components/ui/linkified-text";
 
 interface TaskPageProps {
   params: Promise<{ id: string }>;
@@ -758,8 +759,8 @@ export default function TaskPage({ params }: TaskPageProps) {
 
         {/* Description */}
         {task.description && (
-          <p className="text-muted-foreground whitespace-pre-wrap">
-            {task.description}
+          <p className="text-muted-foreground whitespace-pre-wrap [overflow-wrap:anywhere]">
+            <LinkifiedText text={task.description} />
           </p>
         )}
 
