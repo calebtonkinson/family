@@ -2,7 +2,7 @@
 
 import { useTasks } from "@/hooks/use-tasks";
 import { useProjects } from "@/hooks/use-projects";
-import { usePinnedLists, useMarkOffListItem } from "@/hooks/use-lists";
+import { usePinnedLists } from "@/hooks/use-lists";
 import { TaskList } from "@/components/tasks/task-list";
 import { ProjectCard } from "@/components/projects/project-card";
 import { PinnedListCard } from "@/components/lists";
@@ -26,7 +26,6 @@ export default function DashboardPage() {
   });
 
   const { data: pinnedData } = usePinnedLists();
-  const markOffItem = useMarkOffListItem();
 
   const tasks = tasksData?.data || [];
   const projects = projectsData?.data || [];
@@ -82,9 +81,6 @@ export default function DashboardPage() {
                 key={list.id}
                 list={list}
                 compact
-                onToggleItem={(listId, itemId, markedOff) =>
-                  markOffItem.mutate({ listId, itemId, markedOff })
-                }
               />
             ))}
           </div>

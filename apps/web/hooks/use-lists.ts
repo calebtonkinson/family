@@ -45,7 +45,17 @@ function isListDetailResponse(value: unknown): value is ListDetailResponse {
 }
 
 function isPinnedListsResponse(value: unknown): value is PinnedListsResponse {
-  return isRecord(value) && Array.isArray(value.data) && value.data.every((item) => isRecord(item));
+  return (
+    isRecord(value) &&
+    Array.isArray(value.data) &&
+    value.data.every(
+      (item) =>
+        isRecord(item) &&
+        typeof item.pinId === "string" &&
+        typeof item.position === "number" &&
+        Array.isArray(item.items),
+    )
+  );
 }
 
 function parseListParams(queryKey: QueryKey): ListsParams | undefined {
