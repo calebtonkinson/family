@@ -908,7 +908,7 @@ export default function TaskPage({ params }: TaskPageProps) {
                   }}
                 />
                 {isMentionMenuOpen && (
-                  <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-md border bg-popover shadow-md">
+                  <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-md border bg-white shadow-md">
                     <div className="max-h-48 overflow-y-auto p-1">
                       {mentionSuggestions.map((option, index) => (
                         <button
