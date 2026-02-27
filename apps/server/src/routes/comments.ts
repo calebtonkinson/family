@@ -1,8 +1,9 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { db } from "@home/db";
-import { comments, familyMembers, users } from "@home/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { comments, familyMembers, tasks, users } from "@home/db/schema";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { processAiMention } from "../services/task-agent-service.js";
+import { NotificationService } from "../services/notification-service.js";
 
 export const commentsRouter = new OpenAPIHono();
 
@@ -28,6 +29,7 @@ const commentResponseSchema = z.object({
 // Create comment schema
 const createCommentSchema = z.object({
   content: z.string().min(1, "Comment cannot be empty"),
+  mentionedFamilyMemberIds: z.array(z.string().uuid()).max(20).optional(),
 });
 
 // Params schema
@@ -133,6 +135,9 @@ const createCommentRoute = createRoute({
         },
       },
     },
+    404: {
+      description: "Task not found",
+    },
   },
 });
 
@@ -140,6 +145,19 @@ commentsRouter.openapi(createCommentRoute, async (c) => {
   const auth = c.get("auth");
   const { taskId } = c.req.valid("param");
   const body = c.req.valid("json");
+
+  const [task] = await db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+    })
+    .from(tasks)
+    .where(and(eq(tasks.id, taskId), eq(tasks.householdId, auth.householdId)))
+    .limit(1);
+
+  if (!task) {
+    return c.json({ error: "Task not found" }, 404);
+  }
 
   const [comment] = await db
     .insert(comments)
@@ -174,6 +192,59 @@ commentsRouter.openapi(createCommentRoute, async (c) => {
         lastName: userWithFamilyMember.lastName,
       }
     : null;
+
+  const mentionedFamilyMemberIds = Array.from(
+    new Set(body.mentionedFamilyMemberIds ?? []),
+  );
+  if (mentionedFamilyMemberIds.length > 0) {
+    const validMentionedMembers = await db
+      .select({
+        id: familyMembers.id,
+      })
+      .from(familyMembers)
+      .where(
+        and(
+          eq(familyMembers.householdId, auth.householdId),
+          inArray(familyMembers.id, mentionedFamilyMemberIds),
+        ),
+      );
+
+    const validMentionedMemberIds = validMentionedMembers.map((member) => member.id);
+    if (validMentionedMemberIds.length > 0) {
+      const mentionedUsers = await db
+        .select({
+          id: users.id,
+        })
+        .from(users)
+        .where(
+          and(
+            eq(users.householdId, auth.householdId),
+            inArray(users.familyMemberId, validMentionedMemberIds),
+          ),
+        );
+
+      const commenterName = user
+        ? `${user.firstName} ${user.lastName ?? ""}`.trim()
+        : "Someone";
+      const mentionNotificationTitle = "Task mention";
+      const mentionNotificationBody = `${commenterName} mentioned you on "${task.title}"`;
+
+      await Promise.allSettled(
+        mentionedUsers.map((mentionedUser) =>
+          NotificationService.sendUserNotification(mentionedUser.id, {
+            title: mentionNotificationTitle,
+            body: mentionNotificationBody,
+            url: `/tasks/${task.id}`,
+            data: {
+              type: "task_mention",
+              taskId: task.id,
+              commentId: comment.id,
+            },
+          }),
+        ),
+      );
+    }
+  }
 
   // Check for @ai mention and trigger agent asynchronously
   let aiTriggered = false;
