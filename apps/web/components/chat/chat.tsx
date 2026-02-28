@@ -20,6 +20,10 @@ import {
   Telescope,
   CheckCircle2,
   CircleAlert,
+  Sparkles,
+  ImageIcon,
+  FileText,
+  CornerDownLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getPendingMessage, getPendingFiles, getPendingResearch } from "@/lib/pending-chat-message";
@@ -102,6 +106,7 @@ export function Chat({
   const hasMountedRef = useRef(false);
   const [inputValue, setInputValue] = useState("");
   const [pendingFiles, setPendingFiles] = useState<FileList | null>(null);
+  const pendingFileArray = pendingFiles ? Array.from(pendingFiles) : [];
 
   const [researchStatus, setResearchStatus] = useState<ResearchRunStatusResponse | null>(
     initialResearchStatus || null,
@@ -191,7 +196,6 @@ export function Chat({
     } else if (message) {
       sendMessageRef.current({ text: message });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPendingMessage]);
 
   // Auto-scroll to bottom on new messages
@@ -203,6 +207,15 @@ export function Chat({
     });
     hasMountedRef.current = true;
   }, [messages, isLoading, researchStatus]);
+
+  // Auto-resize composer as the user types
+  useEffect(() => {
+    const textarea = inputRef.current;
+    if (!textarea) return;
+    textarea.style.height = "0px";
+    const nextHeight = Math.min(textarea.scrollHeight, 160);
+    textarea.style.height = `${Math.max(44, nextHeight)}px`;
+  }, [inputValue]);
 
   // Poll active research run for progress
   useEffect(() => {
@@ -393,7 +406,7 @@ export function Chat({
     <div className="flex h-full min-h-0 flex-col">
       {/* Messages */}
       <ScrollArea ref={scrollRef} className="flex-1 min-h-0 min-w-0">
-        <div className="mx-auto w-full max-w-3xl space-y-4 px-4 py-4">
+        <div className="mx-auto w-full max-w-4xl space-y-5 px-4 py-5">
           {messages.map((message) => {
             const textContent = getMessageText(message);
             const toolParts = getToolParts(message);
@@ -406,16 +419,20 @@ export function Chat({
             }
 
             return (
-              <div key={message.id} className="space-y-2">
+              <div key={message.id} className="space-y-2.5">
                 {/* Tool Invocations */}
                 {toolParts.length > 0 && (
                   <div className="flex min-w-0 gap-3">
-                    <Avatar className="h-8 w-8 shrink-0">
-                      <AvatarFallback>
+                    <Avatar className="h-8 w-8 shrink-0 border border-info/35 bg-info/10">
+                      <AvatarFallback className="bg-transparent text-info">
                         <Wrench className="h-4 w-4" />
                       </AvatarFallback>
                     </Avatar>
-                    <div className="min-w-0 flex-1 space-y-2">
+                    <div className="min-w-0 flex-1 space-y-2 rounded-2xl border border-info/25 bg-gradient-to-br from-info/5 via-background to-background p-3">
+                      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-info">
+                        <Sparkles className="h-3.5 w-3.5" />
+                        Tool activity
+                      </div>
                       {toolParts.map((tool, idx) => {
                         const toolPart = tool as unknown as ToolPart;
                         const toolName =
@@ -436,7 +453,7 @@ export function Chat({
                           <ToolInvocationCard
                             key={normalizedTool.id}
                             tool={normalizedTool}
-                            className="w-full max-w-full sm:max-w-[85%]"
+                            className="w-full max-w-full"
                           />
                         );
                       })}
@@ -448,16 +465,16 @@ export function Chat({
                 {(textContent || fileParts.length > 0) && (
                   <div
                     className={cn(
-                      "flex min-w-0 gap-3",
+                      "flex min-w-0 items-start gap-3",
                       message.role === "user" && "flex-row-reverse",
                     )}
                   >
-                    <Avatar className="h-8 w-8 shrink-0">
+                    <Avatar className="h-8 w-8 shrink-0 border">
                       <AvatarFallback
                         className={cn(
                           message.role === "user" &&
-                            "bg-primary text-primary-foreground",
-                          message.role !== "user" && "bg-muted text-foreground",
+                            "border-primary/40 bg-primary text-primary-foreground",
+                          message.role !== "user" && "bg-muted/80 text-foreground",
                         )}
                       >
                         {message.role === "user" ? (
@@ -469,25 +486,32 @@ export function Chat({
                     </Avatar>
                     <Card
                       className={cn(
-                        "w-full min-w-0 max-w-[80%] overflow-x-hidden break-words px-4 py-3 space-y-3",
+                        "w-full min-w-0 max-w-[86%] space-y-3 overflow-x-hidden break-words rounded-2xl px-4 py-3.5 shadow-sm",
                         message.role === "user" &&
-                          "bg-primary text-primary-foreground border-primary/50 shadow-md",
+                          "border-primary/40 bg-gradient-to-br from-primary to-primary/85 text-primary-foreground shadow-md shadow-primary/20",
                         message.role !== "user" &&
-                          "bg-card border-border shadow-sm",
+                          "border-border/70 bg-gradient-to-br from-card via-card to-muted/35",
                       )}
                     >
-                      <div
-                        className={cn(
-                          "text-[11px] font-semibold uppercase tracking-wide",
-                          message.role === "user"
-                            ? "text-primary-foreground/80"
-                            : "text-muted-foreground",
+                      <div className="flex items-center gap-1.5">
+                        {message.role === "user" ? (
+                          <User className="h-3.5 w-3.5 text-primary-foreground/80" />
+                        ) : (
+                          <Bot className="h-3.5 w-3.5 text-muted-foreground" />
                         )}
-                      >
-                        {message.role === "user" ? "You" : "Assistant"}
+                        <div
+                          className={cn(
+                            "text-[11px] font-semibold uppercase tracking-wide",
+                            message.role === "user"
+                              ? "text-primary-foreground/80"
+                              : "text-muted-foreground",
+                          )}
+                        >
+                          {message.role === "user" ? "You" : "Assistant"}
+                        </div>
                       </div>
                       {fileParts.length > 0 && (
-                        <div className="space-y-2">
+                        <div className="space-y-2 rounded-xl border border-border/50 bg-background/20 p-2">
                           {fileParts.map((file, idx) => (
                             <div key={`${file.url}-${idx}`} className="space-y-2">
                               {file.mediaType.startsWith("image/") ? (
@@ -495,13 +519,14 @@ export function Chat({
                                   <img
                                     src={file.url}
                                     alt={file.filename || "Uploaded image"}
-                                    className="max-h-64 w-full rounded-md border object-contain"
+                                    className="max-h-64 w-full rounded-lg border object-contain"
                                   />
                                   {file.filename && (
                                     <div className={cn(
-                                      "text-xs text-muted-foreground",
+                                      "inline-flex items-center gap-1 text-xs text-muted-foreground",
                                       message.role === "user" && "text-primary-foreground/80"
                                     )}>
+                                      <ImageIcon className="h-3.5 w-3.5" />
                                       {file.filename}
                                     </div>
                                   )}
@@ -511,13 +536,14 @@ export function Chat({
                                   href={file.url}
                                   download={file.filename}
                                   className={cn(
-                                    "flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-xs",
+                                    "flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs",
                                     message.role === "user"
                                       ? "border-primary-foreground/30"
                                       : "border-border"
                                   )}
                                 >
-                                  <span className="truncate">
+                                  <span className="flex min-w-0 items-center gap-1.5 truncate">
+                                    <FileText className="h-3.5 w-3.5 shrink-0" />
                                     {file.filename || "Attachment"}
                                   </span>
                                   <span className={cn(
@@ -537,12 +563,13 @@ export function Chat({
                         <ResearchPresentationView presentation={presentation} />
                       ) : (
                         <div className={cn(
-                          "text-sm prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+                          "prose prose-sm max-w-none whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere] dark:prose-invert",
                           "prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5",
                           "prose-headings:mt-2 prose-headings:mb-1 prose-headings:font-semibold prose-headings:break-words prose-headings:[overflow-wrap:anywhere]",
                           "prose-pre:max-w-full prose-pre:overflow-x-auto prose-pre:whitespace-pre-wrap prose-pre:break-words prose-pre:[overflow-wrap:anywhere] prose-pre:bg-muted prose-pre:text-foreground",
                           "prose-code:text-foreground [&_p]:break-words [&_li]:break-words [&_a]:break-all [&_pre_code]:whitespace-pre-wrap [&_pre_code]:break-all [&_pre_code]:[overflow-wrap:anywhere]",
-                          message.role === "user" && "prose-invert"
+                          message.role === "user" &&
+                            "prose-invert [&_a]:text-primary-foreground [&_a]:underline [&_strong]:text-primary-foreground"
                         )}>
                           <ReactMarkdown>{textContent}</ReactMarkdown>
                         </div>
@@ -561,8 +588,11 @@ export function Chat({
                   <Bot className="h-4 w-4" />
                 </AvatarFallback>
               </Avatar>
-              <Card className="px-4 py-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
+              <Card className="rounded-xl border-border/70 bg-muted/30 px-4 py-3">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Thinking...
+                </div>
               </Card>
             </div>
           )}
@@ -571,12 +601,12 @@ export function Chat({
           {isResearchInProgress && (
             <div className="flex gap-3">
               <Avatar className="h-8 w-8 shrink-0">
-                <AvatarFallback className="bg-muted text-foreground">
+                <AvatarFallback className="bg-info/10 text-info">
                   <Telescope className="h-4 w-4" />
                 </AvatarFallback>
               </Avatar>
-              <Card className="flex items-center gap-3 px-4 py-3">
-                <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+              <Card className="flex items-center gap-3 rounded-xl border-info/25 bg-info/5 px-4 py-3">
+                <Loader2 className="h-4 w-4 animate-spin text-info" />
                 <div className="min-w-0">
                   <div className="text-sm font-medium">Researching&hellip;</div>
                   <div className="text-xs text-muted-foreground truncate">
@@ -631,33 +661,9 @@ export function Chat({
       <form
         ref={formRef}
         onSubmit={handleSubmit}
-        className="flex flex-col gap-2 border-t p-4 shrink-0"
+        className="shrink-0 border-t border-border/70 bg-background/95 px-4 pb-4 pt-3 backdrop-blur supports-[backdrop-filter]:bg-background/80"
       >
-        {pendingFiles && pendingFiles.length > 0 && (
-          <div className="flex items-center justify-between rounded-md border px-3 py-2 text-xs text-muted-foreground">
-            <span className="truncate">
-              {pendingFiles.length === 1
-                ? pendingFiles[0]?.name
-                : `${pendingFiles.length} files attached`}
-            </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                setPendingFiles(null);
-                if (fileInputRef.current) {
-                  fileInputRef.current.value = "";
-                }
-              }}
-            >
-              <X className="h-4 w-4" />
-              <span className="sr-only">Remove attachment</span>
-            </Button>
-          </div>
-        )}
-
-        <div className="flex min-w-0 gap-2">
+        <div className="mx-auto w-full max-w-4xl space-y-2">
           <input
             ref={fileInputRef}
             type="file"
@@ -667,55 +673,107 @@ export function Chat({
             onChange={(e) => setPendingFiles(e.target.files)}
             disabled={isLoading || isResearchLoading}
           />
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isLoading || isResearchLoading}
-            className="shrink-0"
-          >
-            <Paperclip className="h-4 w-4" />
-            <span className="sr-only">Attach file</span>
-          </Button>
-          <Textarea
-            ref={inputRef}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleComposerKeyDown}
-            placeholder="Ask me anything about your household... (Shift+Enter for a new line)"
-            disabled={isLoading || isResearchLoading}
-            rows={1}
-            className="min-w-0 flex-1 min-h-[44px] max-h-40 resize-none"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={() => void handleStartResearch()}
-            disabled={isLoading || isResearchLoading || !inputValue.trim()}
-            title="Deep Research"
-            className="shrink-0"
-          >
-            {isResearchLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Telescope className="h-4 w-4" />
-            )}
-            <span className="sr-only">Deep Research</span>
-          </Button>
-          <Button
-            type="submit"
-            disabled={
-              isLoading ||
-              isResearchLoading ||
-              (!inputValue.trim() && !pendingFiles)
-            }
-            className="shrink-0 gap-2 bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-primary/30 disabled:text-primary-foreground/70 disabled:opacity-100"
-          >
-            <Send className="h-4 w-4" />
-            <span className="hidden text-sm font-medium sm:inline">Send</span>
-          </Button>
+          {pendingFileArray.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/70 bg-muted/35 px-3 py-2">
+              {pendingFileArray.slice(0, 2).map((file) => (
+                <span
+                  key={`${file.name}-${file.lastModified}`}
+                  className="inline-flex max-w-full items-center gap-1.5 rounded-md border bg-background/80 px-2 py-1 text-xs"
+                >
+                  {file.type.startsWith("image/") ? (
+                    <ImageIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  )}
+                  <span className="truncate">{file.name}</span>
+                </span>
+              ))}
+              {pendingFileArray.length > 2 && (
+                <span className="text-xs text-muted-foreground">
+                  +{pendingFileArray.length - 2} more
+                </span>
+              )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                onClick={() => {
+                  setPendingFiles(null);
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = "";
+                  }
+                }}
+                className="ml-auto"
+              >
+                <X className="h-3.5 w-3.5" />
+                <span className="sr-only">Remove attachment</span>
+              </Button>
+            </div>
+          )}
+
+          <div className="rounded-2xl border border-border/70 bg-card/80 p-2 shadow-sm transition focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/20">
+            <div className="flex min-w-0 items-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoading || isResearchLoading}
+                className="shrink-0 border border-border/70 bg-background/90"
+                title="Attach file"
+              >
+                <Paperclip className="h-4 w-4" />
+                <span className="sr-only">Attach file</span>
+              </Button>
+              <Textarea
+                ref={inputRef}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleComposerKeyDown}
+                placeholder="Ask me anything about your household..."
+                disabled={isLoading || isResearchLoading}
+                rows={1}
+                className="!min-h-[44px] min-w-0 flex-1 max-h-40 resize-none border-0 bg-transparent px-2 py-2 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => void handleStartResearch()}
+                disabled={isLoading || isResearchLoading || !inputValue.trim()}
+                title="Deep Research"
+                className="shrink-0 border border-border/70 bg-background/90"
+              >
+                {isResearchLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Telescope className="h-4 w-4" />
+                )}
+                <span className="sr-only">Deep Research</span>
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  isLoading ||
+                  isResearchLoading ||
+                  (!inputValue.trim() && !pendingFiles)
+                }
+                className="shrink-0 gap-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-primary/30 disabled:text-primary-foreground/70 disabled:opacity-100"
+              >
+                <Send className="h-4 w-4" />
+                <span className="hidden text-sm font-medium sm:inline">Send</span>
+              </Button>
+            </div>
+            <div className="mt-1 flex items-center justify-between px-2 pb-0.5">
+              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                <CornerDownLeft className="h-3.5 w-3.5" />
+                Enter sends &middot; Shift+Enter for new line
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                {inputValue.length} chars
+              </span>
+            </div>
+          </div>
         </div>
       </form>
     </div>
