@@ -6,6 +6,7 @@ import { useCreateTask } from "@/hooks/use-tasks";
 import { useThemes } from "@/hooks/use-themes";
 import { useProjects } from "@/hooks/use-projects";
 import { useFamilyMembers } from "@/hooks/use-family-members";
+import { addDays, addWeeks, format, startOfWeek } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -59,6 +60,22 @@ export default function NewTaskClient() {
     recurrenceType: "",
     recurrenceInterval: "1",
   });
+
+  const applyDuePreset = (preset: "today" | "tomorrow" | "next_week") => {
+    const today = new Date();
+    if (preset === "today") {
+      setFormData((prev) => ({ ...prev, dueDate: format(today, "yyyy-MM-dd") }));
+      return;
+    }
+    if (preset === "tomorrow") {
+      setFormData((prev) => ({ ...prev, dueDate: format(addDays(today, 1), "yyyy-MM-dd") }));
+      return;
+    }
+    setFormData((prev) => ({
+      ...prev,
+      dueDate: format(addWeeks(startOfWeek(today, { weekStartsOn: 1 }), 1), "yyyy-MM-dd"),
+    }));
+  };
 
   // When projectId is provided via URL, also set the theme from the project
   useEffect(() => {
@@ -114,9 +131,9 @@ export default function NewTaskClient() {
         </Button>
       </div>
 
-      <Card>
+      <Card className="tasks-panel rounded-3xl border-border/75">
         <CardHeader>
-          <CardTitle>Create New Task</CardTitle>
+          <CardTitle className="text-xl tracking-[-0.02em]">Create New Task</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -137,6 +154,7 @@ export default function NewTaskClient() {
                   type="button"
                   variant="outline"
                   size="sm"
+                  className="rounded-full border-border/65 bg-background/65 hover:border-primary/35"
                   onClick={() => setFormData({ ...formData, title: template })}
                 >
                   {template}
@@ -172,6 +190,17 @@ export default function NewTaskClient() {
                   value={formData.dueDate}
                   onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
                 />
+                <div className="flex flex-wrap gap-1">
+                  <Button type="button" variant="ghost" size="xs" className="rounded-full border border-border/60 bg-background/60" onClick={() => applyDuePreset("today")}>
+                    Today
+                  </Button>
+                  <Button type="button" variant="ghost" size="xs" className="rounded-full border border-border/60 bg-background/60" onClick={() => applyDuePreset("tomorrow")}>
+                    Tomorrow
+                  </Button>
+                  <Button type="button" variant="ghost" size="xs" className="rounded-full border border-border/60 bg-background/60" onClick={() => applyDuePreset("next_week")}>
+                    Next week
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -288,6 +317,20 @@ export default function NewTaskClient() {
             </div>
             </>
             )}
+
+            <div className="rounded-xl border border-border/70 bg-background/70 p-3 text-sm shadow-[inset_0_1px_0_hsl(var(--background)/0.92)]">
+              <p className="font-medium">
+                {formData.title.trim() || "Untitled task"}
+              </p>
+              <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                <span>
+                  Assignee:{" "}
+                  {familyData?.data.find((m) => m.id === formData.assignedToId)?.firstName || "Unassigned"}
+                </span>
+                <span>Priority: {formData.priority === "2" ? "Urgent" : formData.priority === "1" ? "High" : "Normal"}</span>
+                <span>Due: {formData.dueDate || "No due date"}</span>
+              </div>
+            </div>
 
             <div className="flex gap-4">
               <Button type="submit" disabled={createTask.isPending}>

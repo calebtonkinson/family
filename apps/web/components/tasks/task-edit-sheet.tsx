@@ -83,18 +83,18 @@ export function TaskEditSheet({ task, open, onOpenChange }: TaskEditSheetProps) 
         id: task.id,
         data: {
           title: formData.title,
-          description: formData.description || undefined,
-          themeId: formData.themeId || undefined,
-          projectId: formData.projectId || undefined,
-          assignedToId: formData.assignedToId || undefined,
-          dueDate: formData.dueDate || undefined,
+          description: formData.description.trim() ? formData.description : null,
+          themeId: formData.themeId || null,
+          projectId: formData.projectId || null,
+          assignedToId: formData.assignedToId || null,
+          dueDate: formData.dueDate || null,
           priority: parseInt(formData.priority),
           status: formData.status as Task["status"],
           isRecurring: formData.isRecurring,
           recurrenceType: formData.isRecurring && formData.recurrenceType
             ? (formData.recurrenceType as NonNullable<Task["recurrenceType"]>)
-            : undefined,
-          recurrenceInterval: formData.isRecurring ? parseInt(formData.recurrenceInterval) : undefined,
+            : null,
+          recurrenceInterval: formData.isRecurring ? parseInt(formData.recurrenceInterval) : null,
         },
       });
       toast({
@@ -102,7 +102,7 @@ export function TaskEditSheet({ task, open, onOpenChange }: TaskEditSheetProps) 
         description: "Your changes have been saved.",
       });
       onOpenChange(false);
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to update task. Please try again.",
@@ -117,7 +117,7 @@ export function TaskEditSheet({ task, open, onOpenChange }: TaskEditSheetProps) 
         <SheetHeader>
           <SheetTitle>Edit Task</SheetTitle>
           <SheetDescription>
-            Make changes to your task. Click save when you're done.
+            Make changes to your task. Click save when you&apos;re done.
           </SheetDescription>
         </SheetHeader>
 
