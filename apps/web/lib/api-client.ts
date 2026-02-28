@@ -947,14 +947,17 @@ export interface CreateTaskInput {
   priority?: number;
 }
 
-export interface UpdateTaskInput extends Partial<CreateTaskInput> {
+export interface UpdateTaskInput {
+  title?: string;
   description?: string | null;
   themeId?: string | null;
   projectId?: string | null;
   assignedToId?: string | null;
   dueDate?: string | null;
+  isRecurring?: boolean;
   recurrenceType?: "daily" | "weekly" | "monthly" | "yearly" | "custom_days" | null;
   recurrenceInterval?: number | null;
+  priority?: number;
   status?: "todo" | "in_progress" | "done" | "archived";
 }
 
