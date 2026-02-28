@@ -120,7 +120,7 @@ function TasksPageContent() {
     setNotificationsReady(canSendNotifications());
   }, []);
 
-  const getDueParams = () => {
+  const dueParams = useMemo(() => {
     if (dueFilter === "overdue") {
       return { dueBefore: format(subDays(new Date(), 1), "yyyy-MM-dd") };
     }
@@ -139,23 +139,23 @@ function TasksPageContent() {
       };
     }
     return {};
-  };
+  }, [dueFilter]);
 
   const { data: tasksData, isLoading } = useTasks({
     status: effectiveStatus === "all" ? undefined : effectiveStatus,
     themeId: themeId === "all" ? undefined : themeId,
     assignedToId: assigneeId === "all" ? undefined : assigneeId,
-    ...getDueParams(),
+    ...dueParams,
     isRecurring: recurring === "all" ? undefined : recurring === "yes",
   });
 
   const countParams = useMemo(() => ({
     themeId: themeId === "all" ? undefined : themeId,
     assignedToId: assigneeId === "all" ? undefined : assigneeId,
-    ...getDueParams(),
+    ...dueParams,
     isRecurring: recurring === "all" ? undefined : recurring === "yes",
     limit: 1,
-  }), [themeId, assigneeId, dueFilter, recurring]);
+  }), [themeId, assigneeId, dueParams, recurring]);
 
   const { data: statsTasksData } = useTasks({
     ...countParams,
@@ -176,7 +176,6 @@ function TasksPageContent() {
   const tasks = tasksData?.data || [];
   const themes = themesData?.data || [];
   const family = familyData?.data || [];
-  const statsTasks = statsTasksData?.data || [];
 
   const counts = useMemo(() => ({
     all: countsData?.meta?.total ?? 0,
@@ -186,6 +185,7 @@ function TasksPageContent() {
   }), [countsData, todoCountData, inProgressCountData, doneCountData]);
 
   const stats = useMemo(() => {
+    const statsTasks = statsTasksData?.data ?? [];
     const activeTasks = statsTasks.filter((task) => task.status !== "archived");
     const today = new Date();
 
@@ -231,7 +231,7 @@ function TasksPageContent() {
       completionRate,
       averageOverdueDays,
     };
-  }, [statsTasks]);
+  }, [statsTasksData?.data]);
 
   const listHref = useMemo(() => {
     const p = new URLSearchParams();

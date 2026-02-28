@@ -102,7 +102,7 @@ export function TaskEditSheet({ task, open, onOpenChange }: TaskEditSheetProps) 
         description: "Your changes have been saved.",
       });
       onOpenChange(false);
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to update task. Please try again.",
@@ -117,7 +117,7 @@ export function TaskEditSheet({ task, open, onOpenChange }: TaskEditSheetProps) 
         <SheetHeader>
           <SheetTitle>Edit Task</SheetTitle>
           <SheetDescription>
-            Make changes to your task. Click save when you're done.
+            Make changes to your task. Click save when you&apos;re done.
           </SheetDescription>
         </SheetHeader>
 
