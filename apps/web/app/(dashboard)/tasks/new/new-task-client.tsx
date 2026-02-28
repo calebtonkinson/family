@@ -131,9 +131,9 @@ export default function NewTaskClient() {
         </Button>
       </div>
 
-      <Card>
+      <Card className="tasks-panel rounded-3xl border-border/75">
         <CardHeader>
-          <CardTitle>Create New Task</CardTitle>
+          <CardTitle className="text-xl tracking-[-0.02em]">Create New Task</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -154,6 +154,7 @@ export default function NewTaskClient() {
                   type="button"
                   variant="outline"
                   size="sm"
+                  className="rounded-full border-border/65 bg-background/65 hover:border-primary/35"
                   onClick={() => setFormData({ ...formData, title: template })}
                 >
                   {template}
@@ -190,13 +191,13 @@ export default function NewTaskClient() {
                   onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
                 />
                 <div className="flex flex-wrap gap-1">
-                  <Button type="button" variant="ghost" size="xs" onClick={() => applyDuePreset("today")}>
+                  <Button type="button" variant="ghost" size="xs" className="rounded-full border border-border/60 bg-background/60" onClick={() => applyDuePreset("today")}>
                     Today
                   </Button>
-                  <Button type="button" variant="ghost" size="xs" onClick={() => applyDuePreset("tomorrow")}>
+                  <Button type="button" variant="ghost" size="xs" className="rounded-full border border-border/60 bg-background/60" onClick={() => applyDuePreset("tomorrow")}>
                     Tomorrow
                   </Button>
-                  <Button type="button" variant="ghost" size="xs" onClick={() => applyDuePreset("next_week")}>
+                  <Button type="button" variant="ghost" size="xs" className="rounded-full border border-border/60 bg-background/60" onClick={() => applyDuePreset("next_week")}>
                     Next week
                   </Button>
                 </div>
@@ -317,7 +318,7 @@ export default function NewTaskClient() {
             </>
             )}
 
-            <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+            <div className="rounded-xl border border-border/70 bg-background/70 p-3 text-sm shadow-[inset_0_1px_0_hsl(var(--background)/0.92)]">
               <p className="font-medium">
                 {formData.title.trim() || "Untitled task"}
               </p>

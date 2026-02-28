@@ -127,15 +127,15 @@ export function TaskCard({
     : "Unassigned";
 
   const renderStatusBadge = () => {
-    if (task.status === "done") return <Badge variant="success">Done</Badge>;
-    if (task.status === "in_progress") return <Badge variant="info">In Progress</Badge>;
-    return <Badge variant="secondary">To Do</Badge>;
+    if (task.status === "done") return <Badge variant="success" className="shadow-none">Done</Badge>;
+    if (task.status === "in_progress") return <Badge variant="info" className="shadow-none">In Progress</Badge>;
+    return <Badge variant="secondary" className="shadow-none">To Do</Badge>;
   };
 
   const renderPriorityBadge = () => {
-    if (task.priority === 2) return <Badge variant="destructive">Urgent</Badge>;
-    if (task.priority === 1) return <Badge variant="warning">High</Badge>;
-    return <Badge variant="outline">Normal</Badge>;
+    if (task.priority === 2) return <Badge variant="destructive" className="shadow-none">Urgent</Badge>;
+    if (task.priority === 1) return <Badge variant="warning" className="shadow-none">High</Badge>;
+    return <Badge variant="outline" className="shadow-none">Normal</Badge>;
   };
 
   const renderStatusMenu = (align: "start" | "end" = "end") => (
@@ -231,7 +231,7 @@ export function TaskCard({
   return (
     <div
       className={cn(
-        "group min-w-0 rounded-lg border bg-card px-4 py-3 transition-all hover:border-primary/30 hover:bg-muted/40 sm:rounded-none sm:border-0 sm:bg-transparent",
+        "group relative min-w-0 rounded-2xl border border-border/70 bg-[linear-gradient(180deg,hsl(var(--card)/0.96),hsl(var(--card)/0.9))] px-4 py-3 shadow-[inset_0_1px_0_hsl(var(--background)/0.92)] transition-[background,border-color,box-shadow,transform] duration-200 hover:-translate-y-px hover:border-primary/35 hover:bg-[linear-gradient(180deg,hsl(var(--card)/0.99),hsl(var(--card)/0.92))] hover:shadow-[inset_0_1px_0_hsl(var(--background)/0.95),0_18px_40px_-30px_hsl(var(--foreground)/0.45)] sm:rounded-none sm:border-0 sm:bg-transparent sm:shadow-none sm:hover:translate-y-0 sm:hover:bg-muted/35",
         task.status === "done" && "opacity-60",
       )}
     >
@@ -282,7 +282,7 @@ export function TaskCard({
                 <Badge
                   variant="outline"
                   className={cn(
-                    "h-5 px-2 text-[11px] font-normal",
+                    "h-5 border-border/75 bg-background/80 px-2 text-[11px] font-medium shadow-[inset_0_1px_0_hsl(var(--background)/0.94)]",
                     isOverdue && "border-destructive/30 text-destructive",
                     isToday(dueDate as Date) && !isOverdue && "border-primary/40 text-primary",
                   )}
@@ -295,7 +295,7 @@ export function TaskCard({
               {showTheme && task.theme && (
                 <Badge
                   variant="accent"
-                  className="h-5 px-2 text-[11px]"
+                  className="h-5 px-2 text-[11px] font-medium shadow-[inset_0_1px_0_hsl(var(--background)/0.84)]"
                   style={{
                     backgroundColor: task.theme.color ? `${task.theme.color}20` : undefined,
                     color: task.theme.color || undefined,
@@ -307,13 +307,13 @@ export function TaskCard({
               )}
 
               {showProject && task.project && (
-                <Badge variant="outline" className="h-5 px-2 text-[11px] font-normal">
+                <Badge variant="outline" className="h-5 border-border/75 bg-background/80 px-2 text-[11px] font-medium">
                   Project: {task.project.name}
                 </Badge>
               )}
 
               {task.assignedTo && (
-                <Badge variant="outline" className="h-5 px-2 text-[11px] font-normal">
+                <Badge variant="outline" className="h-5 border-border/75 bg-background/80 px-2 text-[11px] font-medium">
                   Assigned: {assigneeInitials}
                 </Badge>
               )}
@@ -436,7 +436,7 @@ export function TaskCard({
                     e.stopPropagation();
                   }}
                   className={cn(
-                    "flex cursor-pointer items-center gap-1 -mx-1 shrink-0 rounded px-1 transition-colors hover:bg-muted/80",
+                    "flex cursor-pointer items-center gap-1 -mx-1 shrink-0 rounded-md border border-transparent px-1.5 py-0.5 transition-colors hover:border-border/70 hover:bg-background/80",
                     dueDate
                       ? cn(
                           isOverdue && "text-destructive",
@@ -511,7 +511,7 @@ export function TaskCard({
                 <span className="text-muted-foreground/40">·</span>
                 <Badge
                   variant="accent"
-                  className="shrink-0 text-[10px]"
+                  className="shrink-0 text-[10px] font-medium shadow-none"
                   style={{
                     backgroundColor: task.theme.color ? `${task.theme.color}20` : undefined,
                     color: task.theme.color || undefined,

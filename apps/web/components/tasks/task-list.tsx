@@ -63,7 +63,7 @@ export function TaskList({
   return (
     <div className="space-y-0">
       {bulkToolbar}
-      <div className="space-y-2 sm:space-y-0 sm:divide-y sm:divide-border sm:rounded-lg sm:border sm:bg-card">
+      <div className="space-y-2 sm:space-y-0 sm:divide-y sm:divide-border/60 sm:rounded-2xl sm:border sm:border-border/75 sm:bg-[linear-gradient(180deg,hsl(var(--card)/0.94),hsl(var(--card)/0.88))] sm:shadow-[inset_0_1px_0_hsl(var(--background)/0.92),0_26px_50px_-36px_hsl(var(--foreground)/0.42)]">
         {tasks.map((task) => (
           <TaskCard
             key={task.id}

@@ -59,6 +59,7 @@ import {
   requestNotificationPermission,
   subscribeToPush,
 } from "@/lib/pwa";
+import { cn } from "@/lib/utils";
 
 type ViewMode = "list" | "workflow";
 
@@ -291,6 +292,7 @@ function TasksPageContent() {
         subtitle: "Ready to pick up",
         tasks: filteredTasks.filter((task) => task.status === "todo"),
         badgeVariant: "secondary" as const,
+        laneClass: "bg-[linear-gradient(180deg,hsl(var(--card)/0.94),hsl(var(--secondary)/0.26))]",
       },
       {
         id: "in_progress",
@@ -298,6 +300,7 @@ function TasksPageContent() {
         subtitle: "Currently moving",
         tasks: filteredTasks.filter((task) => task.status === "in_progress"),
         badgeVariant: "info" as const,
+        laneClass: "bg-[linear-gradient(180deg,hsl(var(--card)/0.94),hsl(var(--info)/0.18))]",
       },
       {
         id: "done",
@@ -305,6 +308,7 @@ function TasksPageContent() {
         subtitle: "Completed recently",
         tasks: filteredTasks.filter((task) => task.status === "done"),
         badgeVariant: "success" as const,
+        laneClass: "bg-[linear-gradient(180deg,hsl(var(--card)/0.94),hsl(var(--success)/0.16))]",
       },
     ],
     [filteredTasks],
@@ -509,14 +513,14 @@ function TasksPageContent() {
   ];
 
   return (
-    <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-primary/10 via-card to-card px-5 py-5 sm:px-6">
+    <div className="relative space-y-6 pb-6">
+      <section className="tasks-hero-panel relative overflow-hidden rounded-3xl px-5 py-5 sm:px-6">
         <div className="pointer-events-none absolute right-0 top-0 h-40 w-40 translate-x-10 -translate-y-10 rounded-full bg-primary/10 blur-3xl" />
         <div className="relative">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Tasks</h1>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <h1 className="text-2xl font-semibold tracking-[-0.02em] sm:text-3xl">Tasks</h1>
+              <p className="mt-1 text-sm text-muted-foreground/90">
                 Crisp execution for your household. Capture fast, assign clearly, finish consistently.
               </p>
             </div>
@@ -526,6 +530,7 @@ function TasksPageContent() {
                 size="sm"
                 onClick={() => setSelectMode(!selectMode)}
                 disabled={viewMode === "workflow"}
+                className="bg-background/65"
               >
                 <CheckSquare className="mr-2 h-4 w-4" />
                 {selectMode ? "Exit select" : "Select"}
@@ -570,7 +575,7 @@ function TasksPageContent() {
             />
           </div>
 
-          <div className="mt-4 rounded-xl border bg-background/70 p-3 backdrop-blur">
+          <div className="mt-4 rounded-2xl border border-border/70 bg-background/72 p-3 backdrop-blur">
             <div className="mb-2 flex items-center justify-between text-xs font-medium text-muted-foreground">
               <span>Household execution score</span>
               <span>{stats.completionRate}%</span>
@@ -580,10 +585,10 @@ function TasksPageContent() {
         </div>
       </section>
 
-      <section className="rounded-xl border bg-card p-4">
+      <section className="tasks-panel rounded-2xl p-4">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-base font-semibold">Quick capture</h2>
+            <h2 className="text-base font-semibold tracking-[-0.01em]">Quick capture</h2>
             <p className="text-xs text-muted-foreground">
               One-line add with smart defaults. Press <span className="font-medium">Enter</span> to save.
             </p>
@@ -600,7 +605,7 @@ function TasksPageContent() {
             value={quickAddTitle}
             onChange={(e) => setQuickAddTitle(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleQuickAdd()}
-            className="flex-1"
+            className="h-10 flex-1 border-border/70 bg-background/70"
           />
           <Button
             onClick={handleQuickAdd}
@@ -618,6 +623,7 @@ function TasksPageContent() {
               type="button"
               variant="ghost"
               size="xs"
+              className="rounded-full border border-border/65 bg-background/55 hover:border-primary/35 hover:bg-primary/10"
               onClick={() => setQuickAddTitle(template)}
             >
               {template}
@@ -625,7 +631,7 @@ function TasksPageContent() {
           ))}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-background/45 p-2">
           <div className="flex gap-1">
             <Button type="button" variant="outline" size="xs" onClick={() => applyQuickDuePreset("today")}>
               Today
@@ -641,7 +647,7 @@ function TasksPageContent() {
             type="date"
             value={quickAddDueDate}
             onChange={(e) => setQuickAddDueDate(e.target.value)}
-            className="h-8 w-[160px]"
+            className="h-8 w-[160px] border-border/65 bg-background/80"
           />
           <Select value={quickAddAssigneeId} onValueChange={setQuickAddAssigneeId}>
             <SelectTrigger className="h-8 w-[170px]">
@@ -669,7 +675,7 @@ function TasksPageContent() {
         </div>
       </section>
 
-      <section className="rounded-xl border bg-card p-4">
+      <section className="tasks-panel rounded-2xl p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
@@ -732,7 +738,7 @@ function TasksPageContent() {
             placeholder="Search tasks... (press / to focus)"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="h-10 border-border/70 bg-background/70 pl-9"
           />
         </div>
 
@@ -814,15 +820,15 @@ function TasksPageContent() {
       {/* Status Tabs with counts */}
       {viewMode === "list" ? (
         <Tabs value={status} onValueChange={setStatus}>
-          <TabsList>
-            <TabsTrigger value="all">All {counts.all > 0 && <Badge variant="secondary" className="ml-1.5">{counts.all}</Badge>}</TabsTrigger>
-            <TabsTrigger value="todo">To Do {counts.todo > 0 && <Badge variant="secondary" className="ml-1.5">{counts.todo}</Badge>}</TabsTrigger>
-            <TabsTrigger value="in_progress">In Progress {counts.in_progress > 0 && <Badge variant="info" className="ml-1.5">{counts.in_progress}</Badge>}</TabsTrigger>
-            <TabsTrigger value="done">Done {counts.done > 0 && <Badge variant="success" className="ml-1.5">{counts.done}</Badge>}</TabsTrigger>
+          <TabsList className="h-10 rounded-2xl border border-border/70 bg-card/70 p-1 shadow-[inset_0_1px_0_hsl(var(--background)/0.8)]">
+            <TabsTrigger className="rounded-xl px-3" value="all">All {counts.all > 0 && <Badge variant="secondary" className="ml-1.5">{counts.all}</Badge>}</TabsTrigger>
+            <TabsTrigger className="rounded-xl px-3" value="todo">To Do {counts.todo > 0 && <Badge variant="secondary" className="ml-1.5">{counts.todo}</Badge>}</TabsTrigger>
+            <TabsTrigger className="rounded-xl px-3" value="in_progress">In Progress {counts.in_progress > 0 && <Badge variant="info" className="ml-1.5">{counts.in_progress}</Badge>}</TabsTrigger>
+            <TabsTrigger className="rounded-xl px-3" value="done">Done {counts.done > 0 && <Badge variant="success" className="ml-1.5">{counts.done}</Badge>}</TabsTrigger>
           </TabsList>
         </Tabs>
       ) : (
-        <div className="flex items-center gap-2 rounded-xl border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+        <div className="tasks-panel flex items-center gap-2 rounded-2xl px-3 py-2 text-sm text-muted-foreground">
           <Columns3 className="h-4 w-4" />
           Workflow view groups all statuses into execution lanes.
         </div>
@@ -869,7 +875,7 @@ function TasksPageContent() {
           ) : (
             <div className="grid gap-4 xl:grid-cols-3">
               {workflowColumns.map((column) => (
-                <section key={column.id} className="rounded-xl border bg-card/70 p-3">
+                <section key={column.id} className={cn("tasks-lane-panel rounded-2xl p-3", column.laneClass)}>
                   <div className="mb-3 flex items-center justify-between">
                     <div>
                       <h3 className="text-sm font-semibold">{column.title}</h3>
@@ -923,13 +929,13 @@ function InsightTile({
   detail: string;
 }) {
   return (
-    <div className="rounded-xl border bg-background/80 px-3 py-3 backdrop-blur">
+    <div className="rounded-2xl border border-border/70 bg-background/74 px-3 py-3 shadow-[inset_0_1px_0_hsl(var(--background)/0.9)] backdrop-blur">
       <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
         {icon}
         <span>{label}</span>
       </div>
-      <div className="text-2xl font-semibold tracking-tight">{value}</div>
-      <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
+      <div className="text-2xl font-semibold tracking-[-0.02em]">{value}</div>
+      <p className="mt-1 text-xs text-muted-foreground/90">{detail}</p>
     </div>
   );
 }

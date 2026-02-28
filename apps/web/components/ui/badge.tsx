@@ -3,25 +3,25 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium tracking-[0.01em] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
   {
     variants: {
       variant: {
         default:
-          "border-transparent bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20 dark:hover:bg-primary/30",
+          "border-primary/20 bg-primary/12 text-primary shadow-[inset_0_1px_0_hsl(var(--primary-foreground)/0.35)] hover:bg-primary/18",
         secondary:
-          "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
+          "border-border/70 bg-secondary/85 text-secondary-foreground hover:bg-secondary",
         destructive:
-          "border-transparent bg-destructive/10 text-destructive hover:bg-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30",
-        outline: "text-foreground border-border hover:bg-accent/50",
+          "border-destructive/20 bg-destructive/12 text-destructive hover:bg-destructive/18",
+        outline: "text-foreground border-border/80 bg-card/70 hover:bg-accent/40",
         warning:
-          "border-transparent bg-warning/10 text-warning hover:bg-warning/20 dark:bg-warning/20 dark:hover:bg-warning/30",
+          "border-warning/20 bg-warning/12 text-warning hover:bg-warning/18",
         success:
-          "border-transparent bg-success/10 text-success hover:bg-success/20 dark:bg-success/20 dark:hover:bg-success/30",
+          "border-success/20 bg-success/12 text-success hover:bg-success/18",
         info:
-          "border-transparent bg-info/10 text-info hover:bg-info/20 dark:bg-info/20 dark:hover:bg-info/30",
+          "border-info/20 bg-info/12 text-info hover:bg-info/18",
         accent:
-          "border-transparent bg-accent/10 text-accent hover:bg-accent/20 dark:bg-accent/20 dark:hover:bg-accent/30",
+          "border-accent/20 bg-accent/12 text-accent hover:bg-accent/18",
       },
     },
     defaultVariants: {

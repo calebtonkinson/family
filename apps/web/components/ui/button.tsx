@@ -5,25 +5,26 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all duration-200 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium tracking-[0.01em] transition-all duration-200 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring/70 focus-visible:ring-ring/40 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-md hover:bg-primary/90 hover:shadow-lg active:shadow-sm",
+        default:
+          "border border-primary/70 bg-[linear-gradient(180deg,hsl(var(--primary))_0%,hsl(var(--primary)/0.9)_100%)] text-primary-foreground shadow-[inset_0_1px_0_hsl(var(--primary-foreground)/0.2),0_14px_28px_-20px_hsl(var(--primary)/0.85)] hover:brightness-105 hover:shadow-[inset_0_1px_0_hsl(var(--primary-foreground)/0.22),0_18px_32px_-20px_hsl(var(--primary)/0.88)]",
         destructive:
-          "bg-destructive text-destructive-foreground shadow-md hover:bg-destructive/90 hover:shadow-lg active:shadow-sm focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40",
+          "border border-destructive/70 bg-[linear-gradient(180deg,hsl(var(--destructive))_0%,hsl(var(--destructive)/0.88)_100%)] text-destructive-foreground shadow-[inset_0_1px_0_hsl(var(--destructive-foreground)/0.18),0_14px_28px_-20px_hsl(var(--destructive)/0.8)] hover:brightness-105 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40",
         success:
-          "bg-success text-success-foreground shadow-md hover:bg-success/90 hover:shadow-lg active:shadow-sm focus-visible:ring-success/20",
+          "border border-success/70 bg-[linear-gradient(180deg,hsl(var(--success))_0%,hsl(var(--success)/0.88)_100%)] text-success-foreground shadow-[inset_0_1px_0_hsl(var(--success-foreground)/0.18),0_14px_28px_-20px_hsl(var(--success)/0.8)] hover:brightness-105 focus-visible:ring-success/20",
         warning:
-          "bg-warning text-warning-foreground shadow-md hover:bg-warning/90 hover:shadow-lg active:shadow-sm focus-visible:ring-warning/20",
+          "border border-warning/70 bg-[linear-gradient(180deg,hsl(var(--warning))_0%,hsl(var(--warning)/0.88)_100%)] text-warning-foreground shadow-[inset_0_1px_0_hsl(var(--warning-foreground)/0.2),0_14px_28px_-20px_hsl(var(--warning)/0.78)] hover:brightness-105 focus-visible:ring-warning/20",
         info:
-          "bg-info text-info-foreground shadow-md hover:bg-info/90 hover:shadow-lg active:shadow-sm focus-visible:ring-info/20",
+          "border border-info/70 bg-[linear-gradient(180deg,hsl(var(--info))_0%,hsl(var(--info)/0.9)_100%)] text-info-foreground shadow-[inset_0_1px_0_hsl(var(--info-foreground)/0.18),0_14px_28px_-20px_hsl(var(--info)/0.8)] hover:brightness-105 focus-visible:ring-info/20",
         outline:
-          "border-2 border-border bg-background hover:bg-secondary hover:border-primary/50 dark:border-input dark:hover:bg-input/50",
+          "border border-border/90 bg-card/90 shadow-[inset_0_1px_0_hsl(var(--background)/0.85)] hover:border-primary/40 hover:bg-secondary/60",
         secondary:
-          "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80 hover:shadow-md",
+          "border border-border/60 bg-secondary/90 text-secondary-foreground shadow-[inset_0_1px_0_hsl(var(--background)/0.72)] hover:bg-secondary",
         ghost:
-          "hover:bg-accent/10 hover:text-accent-foreground dark:hover:bg-accent/20",
+          "hover:bg-accent/10 hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline font-medium",
       },
       size: {
