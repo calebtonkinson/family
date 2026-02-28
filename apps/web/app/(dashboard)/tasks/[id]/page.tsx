@@ -429,9 +429,11 @@ export default function TaskPage({ params }: TaskPageProps) {
     });
   };
 
+  const taskContainerClassName = "mx-auto w-full max-w-3xl px-4 lg:max-w-5xl";
+
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-3xl px-4">
+      <div className={taskContainerClassName}>
         <div className="mb-4">
           <Button variant="ghost" size="sm" asChild className="gap-1.5 px-2">
             <Link href={backHref}>
@@ -451,7 +453,7 @@ export default function TaskPage({ params }: TaskPageProps) {
 
   if (error || !task) {
     return (
-      <div className="mx-auto max-w-3xl px-4">
+      <div className={taskContainerClassName}>
         <div className="mb-4">
           <Button variant="ghost" size="sm" asChild className="gap-1.5 px-2">
             <Link href={backHref}>
@@ -494,7 +496,7 @@ export default function TaskPage({ params }: TaskPageProps) {
 
   if (isEditing) {
     return (
-      <div className="mx-auto max-w-3xl px-4">
+      <div className={taskContainerClassName}>
         <div className="mb-4 flex items-center justify-between">
           <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)} className="gap-1.5 px-2">
             <X className="h-4 w-4" />
@@ -691,7 +693,7 @@ export default function TaskPage({ params }: TaskPageProps) {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4">
+    <div className="mx-auto w-full max-w-6xl px-4 xl:max-w-7xl">
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="min-w-0">
       {/* Header */}

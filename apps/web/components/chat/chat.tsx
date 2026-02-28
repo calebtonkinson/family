@@ -406,7 +406,7 @@ export function Chat({
     <div className="flex h-full min-h-0 flex-col">
       {/* Messages */}
       <ScrollArea ref={scrollRef} className="flex-1 min-h-0 min-w-0">
-        <div className="mx-auto w-full max-w-4xl space-y-5 px-4 py-5">
+        <div className="mx-auto w-full max-w-4xl space-y-5 px-4 py-5 lg:max-w-6xl">
           {messages.map((message) => {
             const textContent = getMessageText(message);
             const toolParts = getToolParts(message);
@@ -486,7 +486,7 @@ export function Chat({
                     </Avatar>
                     <Card
                       className={cn(
-                        "w-full min-w-0 max-w-[86%] space-y-3 overflow-x-hidden break-words rounded-2xl px-4 py-3.5 shadow-sm",
+                        "w-full min-w-0 max-w-[86%] space-y-3 overflow-x-hidden break-words rounded-2xl px-4 py-3.5 shadow-sm lg:max-w-[92%]",
                         message.role === "user" &&
                           "border-primary/40 bg-gradient-to-br from-primary to-primary/85 text-primary-foreground shadow-md shadow-primary/20",
                         message.role !== "user" &&
