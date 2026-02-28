@@ -1,202 +1,161 @@
 "use client";
 
+import { useMemo } from "react";
 import { useTasks } from "@/hooks/use-tasks";
-import { useProjects } from "@/hooks/use-projects";
 import { usePinnedLists } from "@/hooks/use-lists";
+import { useMealPlans } from "@/hooks/use-meal-plans";
 import { TaskList } from "@/components/tasks/task-list";
-import { ProjectCard } from "@/components/projects/project-card";
 import { PinnedListCard } from "@/components/lists";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronRight, Calendar, AlertCircle, RefreshCw, List } from "lucide-react";
+import { ChevronRight, List, UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
-import { isToday, addDays, isBefore, startOfDay } from "date-fns";
-import { buildNewTaskHref } from "@/lib/task-navigation";
+import { format } from "date-fns";
+import type { MealPlan, MealSlot, Task } from "@/lib/api-client";
+
+const MEAL_SLOT_ORDER: MealSlot[] = ["breakfast", "lunch", "dinner", "snacks"];
+
+const formatMealSlot = (slot: MealSlot) => slot.charAt(0).toUpperCase() + slot.slice(1);
+
+const toTimestamp = (value: string) => {
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
+const mealPlanSummary = (plan: MealPlan) => {
+  const recipeTitles = plan.recipes.map((recipe) => recipe.title).filter(Boolean);
+  if (recipeTitles.length > 0) return recipeTitles.join(", ");
+  if (plan.notes?.trim()) return plan.notes.trim();
+  if (plan.externalLinksJson.length > 0) {
+    return plan.externalLinksJson[0]?.title?.trim() || plan.externalLinksJson[0]?.url;
+  }
+  return "Meal planned";
+};
+
+const isVisibleTask = (task: Task) => task.status !== "archived";
 
 export default function DashboardPage() {
+  const todayKey = format(new Date(), "yyyy-MM-dd");
+
   const { data: tasksData, isLoading: tasksLoading } = useTasks({
-    status: "todo",
-    limit: 50,
+    limit: 100,
+  });
+  const { data: pinnedData, isLoading: pinnedLoading } = usePinnedLists();
+  const { data: mealsData, isLoading: mealsLoading } = useMealPlans({
+    startDate: todayKey,
+    endDate: todayKey,
   });
 
-  const { data: projectsData, isLoading: projectsLoading } = useProjects({
-    isActive: true,
-    limit: 5,
-  });
+  const tasks = tasksData?.data ?? [];
+  const pinnedLists = pinnedData?.data ?? [];
+  const todayMeals = mealsData?.data ?? [];
 
-  const { data: pinnedData } = usePinnedLists();
+  const recentTasks = useMemo(
+    () =>
+      [...tasks]
+        .filter(isVisibleTask)
+        .sort((a, b) => toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt))
+        .slice(0, 5),
+    [tasks],
+  );
 
-  const tasks = tasksData?.data || [];
-  const projects = projectsData?.data || [];
-  const pinnedLists = pinnedData?.data || [];
+  const mealsBySlot = useMemo(() => {
+    const grouped = new Map<MealSlot, MealPlan[]>();
+    for (const slot of MEAL_SLOT_ORDER) {
+      grouped.set(slot, []);
+    }
+    for (const plan of todayMeals) {
+      const slotMeals = grouped.get(plan.mealSlot);
+      if (!slotMeals) continue;
+      slotMeals.push(plan);
+    }
+    return MEAL_SLOT_ORDER.map((slot) => ({
+      slot,
+      meals: grouped.get(slot) ?? [],
+    }));
+  }, [todayMeals]);
 
-  // Filter tasks
-  const todayStart = startOfDay(new Date());
-
-  const overdueTasks = tasks.filter((task) => {
-    if (!task.dueDate) return false;
-    const dueDate = new Date(task.dueDate);
-    return isBefore(dueDate, todayStart);
-  });
-
-  const todayTasks = tasks.filter((task) => {
-    if (!task.dueDate) return false;
-    const dueDate = new Date(task.dueDate);
-    return isToday(dueDate);
-  });
-
-  const upcomingTasks = tasks.filter((task) => {
-    if (!task.dueDate) return false;
-    const dueDate = new Date(task.dueDate);
-    const weekFromNow = addDays(new Date(), 7);
-    return isBefore(todayStart, dueDate) && isBefore(dueDate, weekFromNow);
-  });
-
-  const recurringTasks = tasks.filter((task) => task.isRecurring);
-
-  if (tasksLoading || projectsLoading) {
+  if (tasksLoading || pinnedLoading || mealsLoading) {
     return <DashboardSkeleton />;
   }
 
   return (
     <div className="space-y-6">
-      {/* Pinned Lists */}
-      {pinnedLists.length > 0 && (
-        <section>
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <List className="h-4 w-4 text-primary" />
-              <h2 className="dashboard-section-title">Pinned Lists</h2>
-            </div>
-            <Button variant="ghost" size="xs" asChild>
-              <Link href="/lists">
-                View all <ChevronRight className="ml-0.5 h-3.5 w-3.5" />
-              </Link>
-            </Button>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {pinnedLists.map((list) => (
-              <PinnedListCard
-                key={list.id}
-                list={list}
-                compact
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Today Section */}
-      {overdueTasks.length > 0 && (
-        <section>
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <AlertCircle className="h-4 w-4 text-destructive" />
-              <h2 className="dashboard-section-title">Overdue</h2>
-              <span className="rounded-full bg-destructive px-1.5 py-0 text-[10px] leading-4 text-destructive-foreground">
-                {overdueTasks.length}
-              </span>
-            </div>
-            <Button variant="ghost" size="xs" asChild>
-              <Link href="/tasks?due=overdue">
-                View all <ChevronRight className="ml-0.5 h-3.5 w-3.5" />
-              </Link>
-            </Button>
-          </div>
-          <TaskList tasks={overdueTasks.slice(0, 5)} />
-        </section>
-      )}
-
-      {/* Today Section */}
       <section>
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-1.5">
-            <Calendar className="h-4 w-4 text-primary" />
-            <h2 className="dashboard-section-title">Today</h2>
-            {todayTasks.length > 0 && (
-              <span className="rounded-full bg-primary px-1.5 py-0 text-[10px] leading-4 text-primary-foreground">
-                {todayTasks.length}
-              </span>
-            )}
+            <List className="h-4 w-4 text-primary" />
+            <h2 className="dashboard-section-title">Lists</h2>
           </div>
+          <Button variant="ghost" size="xs" asChild>
+            <Link href="/lists">
+              View all <ChevronRight className="ml-0.5 h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </div>
+        {pinnedLists.length > 0 ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {pinnedLists.map((list) => (
+              <PinnedListCard key={list.id} list={list} compact />
+            ))}
+          </div>
+        ) : (
+          <Card>
+            <CardContent className="py-6 text-center text-muted-foreground">
+              Pin a list to keep it on your home page.
+            </CardContent>
+          </Card>
+        )}
+      </section>
+
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <UtensilsCrossed className="h-4 w-4 text-primary" />
+            <h2 className="dashboard-section-title">Today&apos;s Meals</h2>
+          </div>
+          <Button variant="ghost" size="xs" asChild>
+            <Link href="/meals?tab=plan">
+              Open plan <ChevronRight className="ml-0.5 h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </div>
+        <Card>
+          <CardContent className="p-0">
+            <div className="divide-y">
+              {mealsBySlot.map(({ slot, meals }) => (
+                <div key={slot} className="flex items-start justify-between gap-4 px-4 py-3">
+                  <p className="text-sm font-medium">{formatMealSlot(slot)}</p>
+                  <div className="max-w-[70%] space-y-1 text-right text-sm text-muted-foreground">
+                    {meals.length > 0 ? (
+                      meals.map((meal) => (
+                        <p key={meal.id} className="truncate">
+                          {mealPlanSummary(meal)}
+                        </p>
+                      ))
+                    ) : (
+                      <p>No meal planned</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="dashboard-section-title">Recently Touched Tasks</h2>
           <Button variant="ghost" size="xs" asChild>
             <Link href="/tasks">
               View all <ChevronRight className="ml-0.5 h-3.5 w-3.5" />
             </Link>
           </Button>
         </div>
-        {todayTasks.length > 0 ? (
-          <TaskList tasks={todayTasks.slice(0, 5)} />
-        ) : (
-          <Card>
-            <CardContent className="py-6 text-center text-muted-foreground">
-              No tasks due today.
-            </CardContent>
-          </Card>
-        )}
+        <TaskList tasks={recentTasks} emptyMessage="No recently touched tasks yet." />
       </section>
-
-      {/* Upcoming Section */}
-      {upcomingTasks.length > 0 && (
-        <section>
-          <div className="mb-3 flex items-center gap-1.5">
-            <AlertCircle className="h-4 w-4 text-amber-500" />
-            <h2 className="dashboard-section-title">Upcoming (7 days)</h2>
-          </div>
-          <TaskList tasks={upcomingTasks.slice(0, 5)} />
-        </section>
-      )}
-
-      {/* Recurring Tasks */}
-      {recurringTasks.length > 0 && (
-        <section>
-          <div className="mb-3 flex items-center gap-1.5">
-            <RefreshCw className="h-4 w-4 text-muted-foreground" />
-            <h2 className="dashboard-section-title">Recurring Tasks</h2>
-          </div>
-          <TaskList tasks={recurringTasks.slice(0, 3)} />
-        </section>
-      )}
-
-      {/* Active Projects */}
-      {projects.length > 0 && (
-        <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="dashboard-section-title">Projects in Progress</h2>
-            <Button variant="ghost" size="xs" asChild>
-              <Link href="/projects">
-                View all <ChevronRight className="ml-0.5 h-3.5 w-3.5" />
-              </Link>
-            </Button>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {projects.map((project) => (
-              <ProjectCard key={project.id} project={project} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Empty State */}
-      {tasks.length === 0 && projects.length === 0 && (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <h3 className="text-lg font-semibold">Welcome to Home Management</h3>
-            <p className="mt-2 text-muted-foreground">
-              Get started by creating your first task or project.
-            </p>
-            <div className="mt-6 flex justify-center gap-4">
-              <Button asChild>
-                <Link href={buildNewTaskHref({ returnTo: "/dashboard" })}>Create Task</Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link href="/projects/new">Create Project</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
@@ -204,14 +163,16 @@ export default function DashboardPage() {
 function DashboardSkeleton() {
   return (
     <div className="space-y-6">
-      <section>
-        <Skeleton className="mb-3 h-5 w-24" />
-        <div className="space-y-2">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-20 w-full" />
-          ))}
-        </div>
-      </section>
+      {[1, 2, 3].map((section) => (
+        <section key={section}>
+          <Skeleton className="mb-3 h-5 w-32" />
+          <div className="space-y-2">
+            {[1, 2, 3].map((item) => (
+              <Skeleton key={`${section}-${item}`} className="h-16 w-full" />
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }
