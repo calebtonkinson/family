@@ -47,17 +47,15 @@ export default function DashboardPage() {
     endDate: todayKey,
   });
 
-  const tasks = tasksData?.data ?? [];
   const pinnedLists = pinnedData?.data ?? [];
-  const todayMeals = mealsData?.data ?? [];
 
   const recentTasks = useMemo(
     () =>
-      [...tasks]
+      [...(tasksData?.data ?? [])]
         .filter(isVisibleTask)
         .sort((a, b) => toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt))
         .slice(0, 5),
-    [tasks],
+    [tasksData?.data],
   );
 
   const mealsBySlot = useMemo(() => {
@@ -65,7 +63,7 @@ export default function DashboardPage() {
     for (const slot of MEAL_SLOT_ORDER) {
       grouped.set(slot, []);
     }
-    for (const plan of todayMeals) {
+    for (const plan of mealsData?.data ?? []) {
       const slotMeals = grouped.get(plan.mealSlot);
       if (!slotMeals) continue;
       slotMeals.push(plan);
@@ -74,7 +72,7 @@ export default function DashboardPage() {
       slot,
       meals: grouped.get(slot) ?? [],
     }));
-  }, [todayMeals]);
+  }, [mealsData?.data]);
 
   if (tasksLoading || pinnedLoading || mealsLoading) {
     return <DashboardSkeleton />;
