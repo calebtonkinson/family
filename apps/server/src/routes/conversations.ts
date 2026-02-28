@@ -13,7 +13,16 @@ import {
   idParamSchema,
   paginationSchema,
 } from "@home/shared";
-import { eq, and, desc, asc, sql, inArray } from "drizzle-orm";
+import {
+  eq,
+  and,
+  desc,
+  asc,
+  sql,
+  inArray,
+  exists,
+  notExists,
+} from "drizzle-orm";
 
 export const conversationsRouter = new OpenAPIHono();
 
@@ -41,12 +50,31 @@ const messageResponseSchema = z.object({
   createdAt: z.string(),
 });
 
+const conversationListQuerySchema = paginationSchema
+  .extend({
+    includeTaskLinked: z.coerce.boolean().optional().default(false),
+    startedByMe: z.coerce.boolean().optional().default(true),
+    entityType: z
+      .enum(["theme", "project", "task", "family_member"])
+      .optional(),
+    entityId: z.string().uuid().optional(),
+  })
+  .refine(
+    (value) =>
+      (value.entityType && value.entityId) ||
+      (!value.entityType && !value.entityId),
+    {
+      message: "entityType and entityId must be provided together",
+      path: ["entityType"],
+    },
+  );
+
 // List conversations
 const listConversationsRoute = createRoute({
   method: "get",
   path: "/",
   request: {
-    query: paginationSchema,
+    query: conversationListQuerySchema,
   },
   responses: {
     200: {
@@ -75,19 +103,62 @@ conversationsRouter.openapi(listConversationsRoute, async (c) => {
   const page = query.page ?? 1;
   const limit = query.limit ?? 20;
   const offset = (page - 1) * limit;
+  const includeTaskLinked = query.includeTaskLinked ?? false;
+  const startedByMe = query.startedByMe ?? true;
+
+  const whereConditions = [eq(conversations.householdId, auth.householdId)];
+
+  if (startedByMe) {
+    whereConditions.push(eq(conversations.startedById, auth.userId));
+  }
+
+  if (!includeTaskLinked) {
+    whereConditions.push(
+      notExists(
+        db
+          .select({ id: conversationLinks.id })
+          .from(conversationLinks)
+          .where(
+            and(
+              eq(conversationLinks.conversationId, conversations.id),
+              eq(conversationLinks.entityType, "task"),
+            ),
+          ),
+      ),
+    );
+  }
+
+  if (query.entityType && query.entityId) {
+    whereConditions.push(
+      exists(
+        db
+          .select({ id: conversationLinks.id })
+          .from(conversationLinks)
+          .where(
+            and(
+              eq(conversationLinks.conversationId, conversations.id),
+              eq(conversationLinks.entityType, query.entityType),
+              eq(conversationLinks.entityId, query.entityId),
+            ),
+          ),
+      ),
+    );
+  }
+
+  const whereClause = and(...whereConditions);
 
   const [conversationsList, countResult] = await Promise.all([
     db
       .select()
       .from(conversations)
-      .where(eq(conversations.householdId, auth.householdId))
+      .where(whereClause)
       .orderBy(desc(conversations.updatedAt))
       .limit(limit)
       .offset(offset),
     db
       .select({ count: sql<number>`count(*)` })
       .from(conversations)
-      .where(eq(conversations.householdId, auth.householdId)),
+      .where(whereClause),
   ]);
 
   // Get message counts
@@ -121,6 +192,72 @@ conversationsRouter.openapi(listConversationsRoute, async (c) => {
       limit,
       total,
       totalPages: Math.ceil(total / limit),
+    },
+  });
+});
+
+const taskConversationParamSchema = z.object({
+  taskId: z.string().uuid(),
+});
+
+const getTaskConversationRoute = createRoute({
+  method: "get",
+  path: "/task/:taskId",
+  request: {
+    params: taskConversationParamSchema,
+  },
+  responses: {
+    200: {
+      description: "Latest task-linked conversation",
+      content: {
+        "application/json": {
+          schema: z.object({
+            data: conversationResponseSchema.nullable(),
+          }),
+        },
+      },
+    },
+  },
+});
+
+conversationsRouter.openapi(getTaskConversationRoute, async (c) => {
+  const auth = c.get("auth");
+  const { taskId } = c.req.valid("param");
+
+  const [row] = await db
+    .select({
+      conversation: conversations,
+    })
+    .from(conversationLinks)
+    .innerJoin(
+      conversations,
+      eq(conversationLinks.conversationId, conversations.id),
+    )
+    .where(
+      and(
+        eq(conversationLinks.entityType, "task"),
+        eq(conversationLinks.entityId, taskId),
+        eq(conversations.householdId, auth.householdId),
+      ),
+    )
+    .orderBy(desc(conversationLinks.createdAt), desc(conversations.updatedAt))
+    .limit(1);
+
+  if (!row?.conversation) {
+    return c.json({ data: null });
+  }
+
+  const [countResult] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(conversationMessages)
+    .where(eq(conversationMessages.conversationId, row.conversation.id));
+
+  return c.json({
+    data: {
+      ...row.conversation,
+      createdAt: row.conversation.createdAt.toISOString(),
+      updatedAt: row.conversation.updatedAt.toISOString(),
+      messageCount: Number(countResult?.count ?? 0),
     },
   });
 });

@@ -7,7 +7,7 @@ import { format, formatDistanceToNow, isPast, isToday, isTomorrow } from "date-f
 import Link from "next/link";
 import { useTask, useUpdateTask, useDeleteTask } from "@/hooks/use-tasks";
 import { useComments, useCreateComment, useDeleteComment } from "@/hooks/use-comments";
-import { useConversation } from "@/hooks/use-conversations";
+import { useConversation, useTaskConversation } from "@/hooks/use-conversations";
 import { useThemes } from "@/hooks/use-themes";
 import { useProjects } from "@/hooks/use-projects";
 import { useFamilyMembers } from "@/hooks/use-family-members";
@@ -221,6 +221,11 @@ export default function TaskPage({ params }: TaskPageProps) {
   const { data: commentsData, isLoading: commentsLoading } = useComments(id, {
     pollingInterval: isAiProcessing ? 2000 : undefined,
   });
+  const {
+    data: taskConversationData,
+    isLoading: taskConversationLoading,
+    refetch: refetchTaskConversation,
+  } = useTaskConversation(id);
   const { data: conversationData, isLoading: conversationLoading } = useConversation(selectedConversationId || "");
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
@@ -278,6 +283,16 @@ export default function TaskPage({ params }: TaskPageProps) {
 
   const task = taskData?.data;
   const comments = commentsData?.data || [];
+  const relatedConversation = taskConversationData?.data ?? null;
+
+  useEffect(() => {
+    const latestConversationId =
+      commentsData?.data?.find((comment) => comment.conversationId)
+        ?.conversationId ?? null;
+    if (!latestConversationId) return;
+    if (relatedConversation?.id === latestConversationId) return;
+    void refetchTaskConversation();
+  }, [commentsData?.data, relatedConversation?.id, refetchTaskConversation]);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -678,7 +693,9 @@ export default function TaskPage({ params }: TaskPageProps) {
   }
 
   return (
-    <div className={taskContainerClassName}>
+    <div className="mx-auto w-full max-w-6xl px-4 xl:max-w-7xl">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="min-w-0">
       {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <Button variant="ghost" size="sm" asChild className="gap-1.5 px-2">
@@ -1088,6 +1105,68 @@ export default function TaskPage({ params }: TaskPageProps) {
             </div>
           )}
         </div>
+      </div>
+
+      </div>
+        <aside className="min-w-0 space-y-3">
+          <div className="rounded-xl border bg-card p-4 lg:sticky lg:top-20">
+            <div className="mb-3 flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold">Related conversation</h2>
+            </div>
+            {taskConversationLoading ? (
+              <div className="space-y-2">
+                <div className="h-4 w-4/5 animate-pulse rounded bg-muted" />
+                <div className="h-3 w-2/3 animate-pulse rounded bg-muted" />
+                <div className="h-8 w-full animate-pulse rounded bg-muted" />
+              </div>
+            ) : relatedConversation ? (
+              <div className="space-y-3">
+                <div>
+                  <p className="line-clamp-2 text-sm font-medium">
+                    {relatedConversation.title || "Task conversation"}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Updated{" "}
+                    {formatDistanceToNow(new Date(relatedConversation.updatedAt), {
+                      addSuffix: true,
+                    })}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {relatedConversation.messageCount ?? 0} messages
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="justify-start gap-2"
+                    onClick={() => setSelectedConversationId(relatedConversation.id)}
+                  >
+                    <Bot className="h-4 w-4" />
+                    Preview thread
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="justify-start gap-2"
+                    asChild
+                  >
+                    <Link href={`/chat/${relatedConversation.id}`}>
+                      <ExternalLink className="h-4 w-4" />
+                      Open in chat
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No linked chat yet. Mention <span className="font-medium">@ai</span> in a comment to
+                create a task conversation.
+              </p>
+            )}
+          </div>
+        </aside>
       </div>
 
       {/* AI Conversation Thread Sheet */}

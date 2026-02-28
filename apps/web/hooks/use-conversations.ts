@@ -9,6 +9,13 @@ import {
 } from "@/lib/api-client";
 
 type ConversationQueryParams = { page?: number; limit?: number };
+type ConversationEntityType = "theme" | "project" | "task" | "family_member";
+type ExtendedConversationQueryParams = ConversationQueryParams & {
+  includeTaskLinked?: boolean;
+  startedByMe?: boolean;
+  entityType?: ConversationEntityType;
+  entityId?: string;
+};
 type ConversationsResponse = { data: Conversation[]; meta: PaginationMeta };
 type ConversationDetailResponse = { data: Conversation };
 
@@ -29,7 +36,7 @@ function isConversationDetailResponse(value: unknown): value is ConversationDeta
   return isRecord(value) && isRecord(value.data) && typeof value.data.id === "string";
 }
 
-export function useConversations(params?: ConversationQueryParams) {
+export function useConversations(params?: ExtendedConversationQueryParams) {
   return useQuery({
     queryKey: ["conversations", params],
     queryFn: () => apiClient.getConversations(params),
@@ -41,6 +48,14 @@ export function useConversation(id: string) {
     queryKey: ["conversations", id],
     queryFn: () => apiClient.getConversation(id),
     enabled: !!id,
+  });
+}
+
+export function useTaskConversation(taskId: string) {
+  return useQuery({
+    queryKey: ["task-conversation", taskId],
+    queryFn: () => apiClient.getTaskConversation(taskId),
+    enabled: !!taskId,
   });
 }
 
