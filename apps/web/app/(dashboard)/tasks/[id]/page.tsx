@@ -221,8 +221,11 @@ export default function TaskPage({ params }: TaskPageProps) {
   const { data: commentsData, isLoading: commentsLoading } = useComments(id, {
     pollingInterval: isAiProcessing ? 2000 : undefined,
   });
-  const { data: taskConversationData, isLoading: taskConversationLoading } =
-    useTaskConversation(id);
+  const {
+    data: taskConversationData,
+    isLoading: taskConversationLoading,
+    refetch: refetchTaskConversation,
+  } = useTaskConversation(id);
   const { data: conversationData, isLoading: conversationLoading } = useConversation(selectedConversationId || "");
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
@@ -281,6 +284,15 @@ export default function TaskPage({ params }: TaskPageProps) {
   const task = taskData?.data;
   const comments = commentsData?.data || [];
   const relatedConversation = taskConversationData?.data ?? null;
+
+  useEffect(() => {
+    const latestConversationId =
+      commentsData?.data?.find((comment) => comment.conversationId)
+        ?.conversationId ?? null;
+    if (!latestConversationId) return;
+    if (relatedConversation?.id === latestConversationId) return;
+    void refetchTaskConversation();
+  }, [commentsData?.data, relatedConversation?.id, refetchTaskConversation]);
 
   const [formData, setFormData] = useState({
     title: "",
