@@ -337,20 +337,20 @@ export default function TaskPage({ params }: TaskPageProps) {
         id,
         data: {
           title: formData.title,
-          description: formData.description || undefined,
-          themeId: formData.themeId || undefined,
-          projectId: formData.projectId || undefined,
-          assignedToId: formData.assignedToId || undefined,
-          dueDate: formData.dueDate || undefined,
+          description: formData.description.trim() ? formData.description : null,
+          themeId: formData.themeId || null,
+          projectId: formData.projectId || null,
+          assignedToId: formData.assignedToId || null,
+          dueDate: formData.dueDate || null,
           priority: parseInt(formData.priority),
           status: formData.status as "todo" | "in_progress" | "done" | "archived",
           isRecurring: formData.isRecurring,
           recurrenceType: formData.isRecurring && formData.recurrenceType
             ? formData.recurrenceType as "daily" | "weekly" | "monthly" | "yearly"
-            : undefined,
+            : null,
           recurrenceInterval: formData.isRecurring
             ? parseInt(formData.recurrenceInterval)
-            : undefined,
+            : null,
         },
       });
 

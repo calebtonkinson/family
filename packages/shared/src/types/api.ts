@@ -62,6 +62,13 @@ export const createTaskSchema = z.object({
 });
 
 export const updateTaskSchema = createTaskSchema.partial().extend({
+  description: z.string().max(5000).nullable().optional(),
+  themeId: z.string().uuid().nullable().optional(),
+  projectId: z.string().uuid().nullable().optional(),
+  assignedToId: z.string().uuid().nullable().optional(),
+  dueDate: dateStringSchema.nullable().optional(),
+  recurrenceType: recurrenceTypeSchema.nullable().optional(),
+  recurrenceInterval: z.number().int().positive().nullable().optional(),
   status: taskStatusSchema.optional(),
 });
 

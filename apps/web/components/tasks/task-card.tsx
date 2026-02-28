@@ -29,9 +29,12 @@ import {
   Pencil,
   Calendar,
   CalendarRange,
+  UserPlus,
+  User,
+  Eraser,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Task } from "@/lib/api-client";
+import type { Task, FamilyMember } from "@/lib/api-client";
 import { useUpdateTask, useDeleteTask } from "@/hooks/use-tasks";
 import { TaskEditSheet } from "./task-edit-sheet";
 
@@ -43,6 +46,7 @@ interface TaskCardProps {
   selected?: boolean;
   onSelectionChange?: (selected: boolean) => void;
   listHref?: string;
+  assignees?: FamilyMember[];
 }
 
 export function TaskCard({
@@ -53,6 +57,7 @@ export function TaskCard({
   selected,
   onSelectionChange,
   listHref,
+  assignees = [],
 }: TaskCardProps) {
   const [editOpen, setEditOpen] = useState(false);
   const [dateMenuOpen, setDateMenuOpen] = useState(false);
@@ -67,6 +72,14 @@ export function TaskCard({
 
   const handleReschedule = (dueDate: string) => {
     updateTask.mutate({ id: task.id, data: { dueDate } });
+  };
+
+  const handleClearDueDate = () => {
+    updateTask.mutate({ id: task.id, data: { dueDate: null } });
+  };
+
+  const handleAssign = (assignedToId: string | null) => {
+    updateTask.mutate({ id: task.id, data: { assignedToId } });
   };
 
   const getRescheduleOptions = () => {
@@ -109,6 +122,9 @@ export function TaskCard({
   const assigneeInitials = task.assignedTo
     ? `${task.assignedTo.firstName[0]}${task.assignedTo.lastName?.[0] || ""}`
     : null;
+  const assigneeName = task.assignedTo
+    ? `${task.assignedTo.firstName} ${task.assignedTo.lastName || ""}`.trim()
+    : "Unassigned";
 
   const renderStatusBadge = () => {
     if (task.status === "done") return <Badge variant="success">Done</Badge>;
@@ -167,10 +183,55 @@ export function TaskCard({
     </DropdownMenu>
   );
 
+  const renderAssigneeMenu = (align: "start" | "end" = "end") => (
+    assignees.length === 0 ? (
+      task.assignedTo ? (
+        <Avatar className="h-6 w-6 shrink-0">
+          <AvatarFallback className="text-[10px] font-medium">{assigneeInitials}</AvatarFallback>
+        </Avatar>
+      ) : null
+    ) : (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="shrink-0 rounded-full transition-colors hover:bg-muted/80"
+            onClick={(e) => e.preventDefault()}
+            aria-label={`Assignee: ${assigneeName}`}
+          >
+            {task.assignedTo ? (
+              <Avatar className="h-6 w-6">
+                <AvatarFallback className="text-[10px] font-medium">{assigneeInitials}</AvatarFallback>
+              </Avatar>
+            ) : (
+              <Badge variant="outline" className="gap-1.5 px-2 py-1 text-[11px] font-medium">
+                <UserPlus className="h-3 w-3" />
+                Assign
+              </Badge>
+            )}
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align={align}>
+          <DropdownMenuItem onClick={() => handleAssign(null)}>
+            <Eraser className="mr-2 h-4 w-4" />
+            Unassigned
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          {assignees.map((member) => (
+            <DropdownMenuItem key={member.id} onClick={() => handleAssign(member.id)}>
+              <User className="mr-2 h-4 w-4" />
+              {member.firstName} {member.lastName || ""}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
+  );
+
   return (
     <div
       className={cn(
-        "group min-w-0 rounded-lg border bg-card px-4 py-3 transition-colors hover:bg-muted/50 sm:rounded-none sm:border-0 sm:bg-transparent",
+        "group min-w-0 rounded-lg border bg-card px-4 py-3 transition-all hover:border-primary/30 hover:bg-muted/40 sm:rounded-none sm:border-0 sm:bg-transparent",
         task.status === "done" && "opacity-60",
       )}
     >
@@ -210,6 +271,11 @@ export function TaskCard({
               </span>
               {task.isRecurring && <RefreshCw className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />}
             </div>
+            {task.description && (
+              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                {task.description}
+              </p>
+            )}
 
             <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
               {dueDateLabel && (
@@ -259,6 +325,7 @@ export function TaskCard({
           <div className="flex flex-wrap items-center gap-2">
             {renderStatusMenu("start")}
             {renderPriorityMenu("start")}
+            {renderAssigneeMenu("start")}
           </div>
 
           <div className="flex items-center gap-1">
@@ -287,6 +354,12 @@ export function TaskCard({
                   <Pencil className="mr-2 h-4 w-4" />
                   Edit
                 </DropdownMenuItem>
+                {task.status === "todo" && (
+                  <DropdownMenuItem onClick={() => handleStatusChange("in_progress")}>
+                    <Clock className="mr-2 h-4 w-4" />
+                    Start now
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 {getRescheduleOptions().map((opt) => (
                   <DropdownMenuItem key={opt.label} onClick={() => handleReschedule(opt.date)}>
@@ -294,6 +367,12 @@ export function TaskCard({
                     Reschedule: {opt.label}
                   </DropdownMenuItem>
                 ))}
+                {task.dueDate && (
+                  <DropdownMenuItem onClick={handleClearDueDate}>
+                    <Eraser className="mr-2 h-4 w-4" />
+                    Clear due date
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleDelete} className="text-destructive focus:text-destructive">
                   <Trash2 className="mr-2 h-4 w-4" />
@@ -329,14 +408,21 @@ export function TaskCard({
         )}
 
         <Link href={taskHref} className="flex min-w-0 flex-1 items-center gap-3">
-          <span
-            className={cn(
-              "truncate font-medium",
-              task.status === "done" && "line-through text-muted-foreground",
+          <div className="min-w-0">
+            <span
+              className={cn(
+                "block truncate font-medium",
+                task.status === "done" && "line-through text-muted-foreground",
+              )}
+            >
+              {task.title}
+            </span>
+            {task.description && (
+              <span className="mt-0.5 hidden max-w-[42ch] truncate text-xs text-muted-foreground xl:block">
+                {task.description}
+              </span>
             )}
-          >
-            {task.title}
-          </span>
+          </div>
 
           {task.isRecurring && <RefreshCw className="h-3 w-3 shrink-0 text-muted-foreground" />}
 
@@ -383,6 +469,17 @@ export function TaskCard({
                     {opt.label}
                   </DropdownMenuItem>
                 ))}
+                {task.dueDate && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      handleClearDueDate();
+                      setDateMenuOpen(false);
+                    }}
+                  >
+                    <Eraser className="mr-2 h-4 w-4" />
+                    Clear due date
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
@@ -437,6 +534,7 @@ export function TaskCard({
 
         {renderStatusMenu()}
         {renderPriorityMenu()}
+        {renderAssigneeMenu()}
 
         <Button
           variant="ghost"
@@ -475,6 +573,12 @@ export function TaskCard({
               <Pencil className="mr-2 h-4 w-4" />
               Edit
             </DropdownMenuItem>
+            {task.status === "todo" && (
+              <DropdownMenuItem onClick={() => handleStatusChange("in_progress")}>
+                <Clock className="mr-2 h-4 w-4" />
+                Start now
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             {getRescheduleOptions().map((opt) => (
               <DropdownMenuItem key={opt.label} onClick={() => handleReschedule(opt.date)}>
@@ -482,6 +586,12 @@ export function TaskCard({
                 Reschedule: {opt.label}
               </DropdownMenuItem>
             ))}
+            {task.dueDate && (
+              <DropdownMenuItem onClick={handleClearDueDate}>
+                <Eraser className="mr-2 h-4 w-4" />
+                Clear due date
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleDelete} className="text-destructive focus:text-destructive">
               <Trash2 className="mr-2 h-4 w-4" />
@@ -490,11 +600,6 @@ export function TaskCard({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {task.assignedTo && (
-          <Avatar className="h-6 w-6 shrink-0">
-            <AvatarFallback className="text-[10px] font-medium">{assigneeInitials}</AvatarFallback>
-          </Avatar>
-        )}
       </div>
 
       <TaskEditSheet task={task} open={editOpen} onOpenChange={setEditOpen} />

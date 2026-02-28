@@ -5,7 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { TaskCard } from "./task-card";
 import { Button } from "@/components/ui/button";
 import { CheckSquare, Plus } from "lucide-react";
-import type { Task } from "@/lib/api-client";
+import type { Task, FamilyMember } from "@/lib/api-client";
 import { buildNewTaskHrefFromLocation } from "@/lib/task-navigation";
 
 interface TaskListProps {
@@ -18,6 +18,7 @@ interface TaskListProps {
   onSelectionChange?: (ids: Set<string>) => void;
   bulkToolbar?: React.ReactNode;
   listHref?: string;
+  assignees?: FamilyMember[];
 }
 
 export function TaskList({
@@ -30,6 +31,7 @@ export function TaskList({
   onSelectionChange,
   bulkToolbar,
   listHref,
+  assignees,
 }: TaskListProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -72,6 +74,7 @@ export function TaskList({
             selected={selectedIds.has(task.id)}
             onSelectionChange={(s) => handleSelectTask(task.id, s)}
             listHref={listHref}
+            assignees={assignees}
           />
         ))}
       </div>

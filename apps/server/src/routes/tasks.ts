@@ -1,6 +1,6 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { db } from "@home/db";
-import { tasks, familyMembers, themes, projects } from "@home/db/schema";
+import { tasks, familyMembers, themes, projects, users } from "@home/db/schema";
 import {
   createTaskSchema,
   updateTaskSchema,
@@ -10,8 +10,54 @@ import {
 } from "@home/shared";
 import { eq, and, sql, desc, asc, lte, gte } from "drizzle-orm";
 import { calculateNextDueDate } from "../services/task-service.js";
+import { NotificationService } from "../services/notification-service.js";
 
 export const tasksRouter = new OpenAPIHono();
+
+const taskStatusLabel: Record<"todo" | "in_progress" | "done" | "archived", string> = {
+  todo: "To Do",
+  in_progress: "In Progress",
+  done: "Done",
+  archived: "Archived",
+};
+
+const taskPriorityLabel: Record<number, string> = {
+  0: "Normal",
+  1: "High",
+  2: "Urgent",
+};
+
+function formatDueDate(dueDate: Date | null): string {
+  if (!dueDate) return "No due date";
+  return dueDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function actorNameFromEmail(email: string): string {
+  const localPart = email.split("@")[0] || "Someone";
+  return localPart
+    .split(/[._-]/g)
+    .filter(Boolean)
+    .map((part) => part[0]?.toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+async function getUserIdForFamilyMember(
+  householdId: string,
+  familyMemberId: string | null,
+): Promise<string | null> {
+  if (!familyMemberId) return null;
+  const [user] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(
+      and(
+        eq(users.householdId, householdId),
+        eq(users.familyMemberId, familyMemberId),
+      ),
+    )
+    .limit(1);
+  return user?.id ?? null;
+}
 
 // Task response schema for OpenAPI
 const taskResponseSchema = z.object({
@@ -301,6 +347,27 @@ tasksRouter.openapi(createTaskRoute, async (c) => {
     throw new Error("Failed to create task");
   }
 
+  if (task.assignedToId) {
+    const assigneeUserId = await getUserIdForFamilyMember(
+      auth.householdId,
+      task.assignedToId,
+    );
+    if (assigneeUserId && assigneeUserId !== auth.userId) {
+      const actorName = actorNameFromEmail(auth.email);
+      await NotificationService.sendUserNotification(assigneeUserId, {
+        title: "New task assigned",
+        body: `${actorName} assigned "${task.title}" • Due ${formatDueDate(task.dueDate ?? null)}`,
+        url: `/tasks/${task.id}`,
+        data: {
+          type: "task_assigned",
+          taskId: task.id,
+        },
+      }).catch((error) => {
+        console.error("[Tasks] Failed to send assignment notification:", error);
+      });
+    }
+  }
+
   return c.json(
     {
       data: {
@@ -362,6 +429,16 @@ tasksRouter.openapi(updateTaskRoute, async (c) => {
   const { id } = c.req.valid("param");
   const body = c.req.valid("json");
 
+  const [existingTask] = await db
+    .select()
+    .from(tasks)
+    .where(and(eq(tasks.id, id), eq(tasks.householdId, auth.householdId)))
+    .limit(1);
+
+  if (!existingTask) {
+    return c.json({ error: "Task not found" }, 404);
+  }
+
   const updateData: Record<string, unknown> = { updatedAt: new Date() };
 
   if (body.title !== undefined) updateData.title = body.title;
@@ -371,8 +448,17 @@ tasksRouter.openapi(updateTaskRoute, async (c) => {
   if (body.projectId !== undefined) updateData.projectId = body.projectId;
   if (body.assignedToId !== undefined)
     updateData.assignedToId = body.assignedToId;
-  if (body.dueDate !== undefined) updateData.dueDate = new Date(body.dueDate);
-  if (body.isRecurring !== undefined) updateData.isRecurring = body.isRecurring;
+  if (body.dueDate !== undefined) {
+    updateData.dueDate = body.dueDate ? new Date(body.dueDate) : null;
+  }
+  if (body.isRecurring !== undefined) {
+    updateData.isRecurring = body.isRecurring;
+    if (!body.isRecurring) {
+      updateData.recurrenceType = null;
+      updateData.recurrenceInterval = null;
+      updateData.nextDueDate = null;
+    }
+  }
   if (body.recurrenceType !== undefined)
     updateData.recurrenceType = body.recurrenceType;
   if (body.recurrenceInterval !== undefined)
@@ -387,6 +473,94 @@ tasksRouter.openapi(updateTaskRoute, async (c) => {
 
   if (!task) {
     return c.json({ error: "Task not found" }, 404);
+  }
+
+  const assignmentChanged = existingTask.assignedToId !== task.assignedToId;
+  const statusChanged = body.status !== undefined && body.status !== existingTask.status;
+  const dueDateChanged =
+    body.dueDate !== undefined &&
+    (existingTask.dueDate?.toISOString() ?? null) !==
+      (task.dueDate?.toISOString() ?? null);
+  const priorityChanged =
+    body.priority !== undefined && body.priority !== existingTask.priority;
+  const titleChanged = body.title !== undefined && body.title !== existingTask.title;
+  const actorName = actorNameFromEmail(auth.email);
+
+  if (assignmentChanged) {
+    const [newAssigneeUserId, previousAssigneeUserId] = await Promise.all([
+      getUserIdForFamilyMember(auth.householdId, task.assignedToId),
+      getUserIdForFamilyMember(auth.householdId, existingTask.assignedToId),
+    ]);
+
+    if (newAssigneeUserId && newAssigneeUserId !== auth.userId) {
+      await NotificationService.sendUserNotification(newAssigneeUserId, {
+        title: "Task assigned to you",
+        body: `${actorName} assigned "${task.title}" • Due ${formatDueDate(task.dueDate ?? null)}`,
+        url: `/tasks/${task.id}`,
+        data: {
+          type: "task_assigned",
+          taskId: task.id,
+        },
+      }).catch((error) => {
+        console.error("[Tasks] Failed to send assignee notification:", error);
+      });
+    }
+
+    if (
+      previousAssigneeUserId &&
+      previousAssigneeUserId !== auth.userId &&
+      previousAssigneeUserId !== newAssigneeUserId
+    ) {
+      const bodyText = task.assignedToId
+        ? `${actorName} reassigned "${task.title}" to another person`
+        : `${actorName} unassigned "${task.title}"`;
+
+      await NotificationService.sendUserNotification(previousAssigneeUserId, {
+        title: "Task assignment changed",
+        body: bodyText,
+        url: `/tasks/${task.id}`,
+        data: {
+          type: "task_reassigned",
+          taskId: task.id,
+        },
+      }).catch((error) => {
+        console.error("[Tasks] Failed to send reassignment notification:", error);
+      });
+    }
+  } else if (task.assignedToId) {
+    const assigneeUserId = await getUserIdForFamilyMember(
+      auth.householdId,
+      task.assignedToId,
+    );
+    if (assigneeUserId && assigneeUserId !== auth.userId) {
+      const updates: string[] = [];
+      if (statusChanged) {
+        updates.push(`status: ${taskStatusLabel[task.status]}`);
+      }
+      if (dueDateChanged) {
+        updates.push(`due: ${formatDueDate(task.dueDate ?? null)}`);
+      }
+      if (priorityChanged) {
+        updates.push(`priority: ${taskPriorityLabel[task.priority ?? 0]}`);
+      }
+      if (titleChanged) {
+        updates.push("title updated");
+      }
+
+      if (updates.length > 0) {
+        await NotificationService.sendUserNotification(assigneeUserId, {
+          title: "Task updated",
+          body: `${actorName} updated "${task.title}" (${updates.join(", ")})`,
+          url: `/tasks/${task.id}`,
+          data: {
+            type: "task_updated",
+            taskId: task.id,
+          },
+        }).catch((error) => {
+          console.error("[Tasks] Failed to send task update notification:", error);
+        });
+      }
+    }
   }
 
   return c.json({
@@ -466,6 +640,32 @@ tasksRouter.openapi(completeTaskRoute, async (c) => {
 
   if (!task) {
     return c.json({ error: "Failed to update task" }, 500);
+  }
+
+  if (task.assignedToId) {
+    const assigneeUserId = await getUserIdForFamilyMember(
+      auth.householdId,
+      task.assignedToId,
+    );
+    if (assigneeUserId && assigneeUserId !== auth.userId) {
+      const actorName = actorNameFromEmail(auth.email);
+      const message =
+        existingTask.isRecurring && existingTask.recurrenceType
+          ? `${actorName} completed "${task.title}" and rolled it to the next occurrence`
+          : `${actorName} marked "${task.title}" as done`;
+
+      await NotificationService.sendUserNotification(assigneeUserId, {
+        title: "Task completed",
+        body: message,
+        url: `/tasks/${task.id}`,
+        data: {
+          type: "task_completed",
+          taskId: task.id,
+        },
+      }).catch((error) => {
+        console.error("[Tasks] Failed to send completion notification:", error);
+      });
+    }
   }
 
   return c.json({

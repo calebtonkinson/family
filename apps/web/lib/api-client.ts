@@ -948,6 +948,13 @@ export interface CreateTaskInput {
 }
 
 export interface UpdateTaskInput extends Partial<CreateTaskInput> {
+  description?: string | null;
+  themeId?: string | null;
+  projectId?: string | null;
+  assignedToId?: string | null;
+  dueDate?: string | null;
+  recurrenceType?: "daily" | "weekly" | "monthly" | "yearly" | "custom_days" | null;
+  recurrenceInterval?: number | null;
   status?: "todo" | "in_progress" | "done" | "archived";
 }
 
