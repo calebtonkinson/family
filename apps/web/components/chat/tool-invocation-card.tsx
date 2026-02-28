@@ -133,6 +133,100 @@ function formatToolName(name: string) {
     .trim();
 }
 
+function formatFieldName(name: string) {
+  return name
+    .replace(/[_-]+/g, " ")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/\s+/g, " ")
+    .replace(/^./, (str) => str.toUpperCase())
+    .trim();
+}
+
+function formatValuePreview(value: unknown): string {
+  if (value === null) return "None";
+  if (value === undefined) return "Not set";
+  if (typeof value === "string") {
+    const clean = value.trim();
+    if (!clean) return "Empty";
+    return clean.length > 80 ? `${clean.slice(0, 77)}...` : clean;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) return "No items";
+    const primitiveValues = value.filter(
+      (item) =>
+        typeof item === "string" ||
+        typeof item === "number" ||
+        typeof item === "boolean",
+    );
+    if (primitiveValues.length === value.length) {
+      const preview = primitiveValues
+        .slice(0, 3)
+        .map((item) => String(item))
+        .join(", ");
+      return value.length > 3 ? `${preview} +${value.length - 3} more` : preview;
+    }
+    return `${value.length} items`;
+  }
+  const record = toRecord(value);
+  if (record) {
+    const keyCount = Object.keys(record).length;
+    return keyCount === 0 ? "No fields" : `${keyCount} fields`;
+  }
+  return String(value);
+}
+
+function JsonPreview({ value, className }: { value: unknown; className?: string }) {
+  const text = typeof value === "string" ? value : JSON.stringify(value, null, 2) ?? String(value);
+  return (
+    <pre
+      className={cn(
+        "max-w-full overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-muted p-2 text-[11px] [overflow-wrap:anywhere]",
+        className,
+      )}
+    >
+      {text}
+    </pre>
+  );
+}
+
+function KeyValueSummary({
+  data,
+  emptyLabel = "No fields provided",
+  maxFields = 8,
+}: {
+  data: Record<string, unknown>;
+  emptyLabel?: string;
+  maxFields?: number;
+}) {
+  const entries = Object.entries(data).filter(([, value]) => value !== undefined);
+  if (entries.length === 0) {
+    return <div className="text-xs text-muted-foreground">{emptyLabel}</div>;
+  }
+
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {entries.slice(0, maxFields).map(([key, value]) => (
+        <div key={key} className="rounded-md border bg-background/80 px-2.5 py-2">
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {formatFieldName(key)}
+          </div>
+          <div className="mt-1 text-[12px] font-medium leading-snug [overflow-wrap:anywhere]">
+            {formatValuePreview(value)}
+          </div>
+        </div>
+      ))}
+      {entries.length > maxFields && (
+        <div className="rounded-md border bg-background/80 px-2.5 py-2 text-[11px] text-muted-foreground sm:col-span-2">
+          +{entries.length - maxFields} more fields
+        </div>
+      )}
+    </div>
+  );
+}
+
 function parseDate(value: string | null) {
   if (!value) return null;
   const parsed = new Date(value);
@@ -220,15 +314,15 @@ function RunningPreview({
 
   const inputRecord = toRecord(input);
   return (
-    <div className="rounded-lg border bg-card p-3 text-xs text-muted-foreground">
-      <div className="mb-1 flex items-center gap-2">
-        <Sparkles className="h-3.5 w-3.5" />
-        <span>Working on {formatToolName(clean)}...</span>
+    <div className="rounded-xl border border-info/30 bg-info/5 p-3 text-xs">
+      <div className="mb-2 flex items-center gap-2 font-medium text-info">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        <span>{formatToolName(clean)} is running</span>
       </div>
-      {inputRecord && Object.keys(inputRecord).length > 0 && (
-        <pre className="max-w-full overflow-x-auto whitespace-pre-wrap break-all rounded bg-muted p-2 text-[11px] text-foreground [overflow-wrap:anywhere]">
-          {JSON.stringify(inputRecord, null, 2)}
-        </pre>
+      {inputRecord ? (
+        <KeyValueSummary data={inputRecord} emptyLabel="Waiting for tool input" />
+      ) : (
+        <div className="text-muted-foreground">Waiting for tool input</div>
       )}
     </div>
   );
@@ -432,6 +526,12 @@ function SummaryCard({
   const success = outputRecord?.success;
   const statusText = success === false ? "Action failed" : "Action completed";
   const isFailure = success === false;
+  const detailEntries = outputRecord
+    ? Object.entries(outputRecord).filter(
+      ([key]) => key !== "message" && key !== "success",
+    )
+    : [];
+  const details = Object.fromEntries(detailEntries);
 
   return (
     <div
@@ -454,6 +554,11 @@ function SummaryCard({
           {formatToolName(toolName)} returned data.
         </div>
       )}
+      {detailEntries.length > 0 && (
+        <div className="mt-2">
+          <KeyValueSummary data={details} />
+        </div>
+      )}
     </div>
   );
 }
@@ -470,11 +575,7 @@ function OutputRenderer({
   const cleanToolName = toolName.replace(/^tool-/, "");
   const outputRecord = toRecord(output);
   if (!outputRecord) {
-    return (
-      <pre className="max-w-full overflow-x-auto whitespace-pre-wrap break-all rounded bg-muted p-2 text-[11px] [overflow-wrap:anywhere]">
-        {JSON.stringify(output, null, 2)}
-      </pre>
-    );
+    return <JsonPreview value={output} />;
   }
 
   if (cleanToolName === "createTask") {
@@ -502,28 +603,42 @@ export function ToolInvocationCard({ tool, className }: ToolInvocationCardProps)
   const isComplete = isOutputAvailable || isError;
   const visuals = getToolVisuals(cleanToolName);
   const hasStructuredResult = isOutputAvailable || isError || isRunning;
+  const statusLabel = isRunning ? "Running" : isError ? "Error" : isComplete ? "Done" : "Queued";
+  const statusVariant = isError
+    ? "destructive"
+    : isRunning
+      ? "info"
+      : isComplete
+        ? "success"
+        : "secondary";
+  const inputRecord = toRecord(tool.input);
 
-  const detailJson = useMemo(
+  const detailPayload = useMemo(
     () =>
-      JSON.stringify(
-        {
-          tool: cleanToolName,
-          state: tool.state,
-          input: tool.input,
-          output: tool.output,
-          error: tool.errorText,
-        },
-        null,
-        2,
-      ),
+      ({
+        tool: cleanToolName,
+        state: tool.state,
+        input: tool.input,
+        output: tool.output,
+        error: tool.errorText,
+      }),
     [cleanToolName, tool.state, tool.input, tool.output, tool.errorText],
   );
 
   return (
-    <Card className={cn("w-full min-w-0 max-w-full overflow-hidden", className)}>
+    <Card
+      className={cn(
+        "w-full min-w-0 max-w-full overflow-hidden border",
+        isError && "border-destructive/30 bg-destructive/5",
+        isRunning && "border-info/30 bg-info/5",
+        !isError && !isRunning && isComplete && "border-success/30 bg-success/5",
+        !isError && !isRunning && !isComplete && "border-border/70 bg-card",
+        className,
+      )}
+    >
       <button
         onClick={() => setIsExpanded((prev) => !prev)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted/50"
+        className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5"
       >
         {isExpanded ? (
           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -531,35 +646,54 @@ export function ToolInvocationCard({ tool, className }: ToolInvocationCardProps)
           <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
         )}
         <span className={cn("shrink-0", visuals.accent)}>{visuals.icon}</span>
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">
-          {formatToolName(cleanToolName || "Tool")}
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold">
+            {formatToolName(cleanToolName || "Tool")}
+          </span>
+          <span className="block truncate text-[11px] text-muted-foreground">
+            {tool.state ? `State: ${tool.state}` : "Awaiting result"}
+          </span>
         </span>
-        {isRunning && (
-          <Badge variant="secondary" className="gap-1 text-[10px]">
+        <Badge variant={statusVariant} className="gap-1 text-[10px]">
+          {isRunning ? (
             <Loader2 className="h-3 w-3 animate-spin" />
-            Running
-          </Badge>
-        )}
-        {isComplete && !isError && (
-          <Badge variant="secondary" className="gap-1 text-[10px]">
-            <CheckCircle2 className="h-3 w-3 text-green-600" />
-            Done
-          </Badge>
-        )}
-        {isError && (
-          <Badge variant="destructive" className="gap-1 text-[10px]">
+          ) : isError ? (
             <TriangleAlert className="h-3 w-3" />
-            Error
-          </Badge>
-        )}
+          ) : isComplete ? (
+            <CheckCircle2 className="h-3 w-3" />
+          ) : (
+            <Sparkles className="h-3 w-3" />
+          )}
+          {statusLabel}
+        </Badge>
       </button>
 
       {isExpanded && (
-        <div className="min-w-0 space-y-3 border-t bg-muted/20 px-3 py-3 text-xs">
+        <div className="min-w-0 space-y-3 border-t border-border/70 bg-background/40 px-3.5 py-3 text-xs">
           {isRunning && <RunningPreview toolName={cleanToolName} input={tool.input} />}
 
+          {!isRunning && tool.input !== undefined && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <Sparkles className="h-3.5 w-3.5 text-info" />
+                Input
+              </div>
+              {inputRecord ? (
+                <KeyValueSummary data={inputRecord} />
+              ) : (
+                <JsonPreview value={tool.input} />
+              )}
+            </div>
+          )}
+
           {isOutputAvailable && tool.output !== undefined && (
-            <OutputRenderer toolName={cleanToolName} input={tool.input} output={tool.output} />
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+                Result
+              </div>
+              <OutputRenderer toolName={cleanToolName} input={tool.input} output={tool.output} />
+            </div>
           )}
 
           {isError && (
@@ -569,17 +703,13 @@ export function ToolInvocationCard({ tool, className }: ToolInvocationCardProps)
                 Tool failed
               </div>
               {tool.errorText && (
-                <pre className="max-w-full overflow-x-auto whitespace-pre-wrap break-all rounded bg-background p-2 text-[11px] text-foreground [overflow-wrap:anywhere]">
-                  {tool.errorText}
-                </pre>
+                <JsonPreview value={tool.errorText} className="bg-background text-foreground" />
               )}
             </div>
           )}
 
           {!hasStructuredResult && (
-            <pre className="max-w-full overflow-x-auto whitespace-pre-wrap break-all rounded bg-muted p-2 text-[11px] [overflow-wrap:anywhere]">
-              {detailJson}
-            </pre>
+            <JsonPreview value={detailPayload} />
           )}
         </div>
       )}

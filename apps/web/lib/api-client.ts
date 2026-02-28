@@ -462,7 +462,14 @@ class ApiClient {
   }
 
   // Conversations
-  async getConversations(params?: { page?: number; limit?: number }) {
+  async getConversations(params?: {
+    page?: number;
+    limit?: number;
+    includeTaskLinked?: boolean;
+    startedByMe?: boolean;
+    entityType?: "theme" | "project" | "task" | "family_member";
+    entityId?: string;
+  }) {
     const searchParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
@@ -479,6 +486,10 @@ class ApiClient {
 
   async getConversation(id: string) {
     return this.request<{ data: ConversationWithMessages }>(`/conversations/${id}`);
+  }
+
+  async getTaskConversation(taskId: string) {
+    return this.request<{ data: Conversation | null }>(`/conversations/task/${taskId}`);
   }
 
   async createConversation(data: CreateConversationInput) {
