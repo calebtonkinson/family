@@ -1093,6 +1093,7 @@ export default function TaskPage({ params }: TaskPageProps) {
         </div>
       </div>
 
+      </div>
         <aside className="min-w-0 space-y-3">
           <div className="rounded-xl border bg-card p-4 lg:sticky lg:top-20">
             <div className="mb-3 flex items-center gap-2">
