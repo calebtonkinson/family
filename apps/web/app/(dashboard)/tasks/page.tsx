@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef, Suspense, type ReactNode } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -34,24 +34,35 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Plus,
   Search,
   CheckSquare,
   Trash2,
   X,
-  Sparkles,
   Bell,
-  Clock3,
-  AlertTriangle,
-  Rocket,
   LayoutList,
   Columns3,
   SlidersHorizontal,
-  Command,
+  Rocket,
+  Clock3,
+  AlertTriangle,
+  Sparkles,
 } from "lucide-react";
-import Link from "next/link";
 import { toast } from "@/hooks/use-toast";
-import { buildNewTaskHref } from "@/lib/task-navigation";
 import { apiClient } from "@/lib/api-client";
 import {
   canSendNotifications,
@@ -68,8 +79,8 @@ function TasksPageContent() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const quickAddInputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize from URL
   const [status, setStatus] = useState<string>(() => searchParams.get("status") || "todo");
   const [viewMode, setViewMode] = useState<ViewMode>(() =>
     searchParams.get("view") === "workflow" ? "workflow" : "list",
@@ -90,10 +101,10 @@ function TasksPageContent() {
   const [notificationsReady, setNotificationsReady] = useState(false);
   const [notificationLoading, setNotificationLoading] = useState(false);
   const [testNotificationLoading, setTestNotificationLoading] = useState(false);
+  const [quickCaptureOpen, setQuickCaptureOpen] = useState(false);
 
   const effectiveStatus = viewMode === "workflow" ? "all" : status;
 
-  // Sync URL with filters
   useEffect(() => {
     const params = new URLSearchParams();
     if (status !== "todo") params.set("status", status);
@@ -234,20 +245,6 @@ function TasksPageContent() {
     };
   }, [statsTasksData?.data]);
 
-  const listHref = useMemo(() => {
-    const p = new URLSearchParams();
-    if (status !== "todo") p.set("status", status);
-    if (viewMode === "workflow") p.set("view", viewMode);
-    if (themeId !== "all") p.set("themeId", themeId);
-    if (assigneeId !== "all") p.set("assigneeId", assigneeId);
-    if (priority !== "all") p.set("priority", priority);
-    if (dueFilter !== "all") p.set("due", dueFilter);
-    if (recurring !== "all") p.set("recurring", recurring);
-    if (hasDescription) p.set("hasDesc", "1");
-    const q = p.toString();
-    return q ? `/tasks?${q}` : "/tasks";
-  }, [status, viewMode, themeId, assigneeId, priority, dueFilter, recurring, hasDescription]);
-
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -263,13 +260,20 @@ function TasksPageContent() {
 
       if (!isTyping && event.key.toLowerCase() === "n") {
         event.preventDefault();
-        router.push(buildNewTaskHref({ returnTo: listHref }));
+        setQuickCaptureOpen(true);
       }
     };
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [listHref, router]);
+  }, []);
+
+  // Auto-focus the quick-add input when the dialog opens
+  useEffect(() => {
+    if (quickCaptureOpen) {
+      setTimeout(() => quickAddInputRef.current?.focus(), 50);
+    }
+  }, [quickCaptureOpen]);
 
   let filteredTasks = tasks;
   if (search) {
@@ -314,7 +318,7 @@ function TasksPageContent() {
     [filteredTasks],
   );
 
-  const handleQuickAdd = async () => {
+  const handleQuickAdd = useCallback(async () => {
     const title = quickAddTitle.trim();
     if (!title) return;
     try {
@@ -326,11 +330,12 @@ function TasksPageContent() {
       });
       setQuickAddTitle("");
       setQuickAddDueDate("");
+      setQuickCaptureOpen(false);
       toast({ title: "Task created" });
     } catch {
       toast({ title: "Failed to create task", variant: "destructive" });
     }
-  };
+  }, [quickAddTitle, quickAddAssigneeId, quickAddPriority, quickAddDueDate, createTask]);
 
   const applyQuickDuePreset = (preset: "today" | "tomorrow" | "next_week") => {
     const today = new Date();
@@ -338,12 +343,10 @@ function TasksPageContent() {
       setQuickAddDueDate(format(today, "yyyy-MM-dd"));
       return;
     }
-
     if (preset === "tomorrow") {
       setQuickAddDueDate(format(addDays(today, 1), "yyyy-MM-dd"));
       return;
     }
-
     setQuickAddDueDate(format(addWeeks(startOfWeek(today, { weekStartsOn: 1 }), 1), "yyyy-MM-dd"));
   };
 
@@ -513,442 +516,449 @@ function TasksPageContent() {
   ];
 
   return (
-    <div className="relative space-y-6 pb-6">
-      <section className="tasks-hero-panel relative overflow-hidden rounded-3xl px-5 py-5 sm:px-6">
-        <div className="pointer-events-none absolute right-0 top-0 h-40 w-40 translate-x-10 -translate-y-10 rounded-full bg-primary/10 blur-3xl" />
-        <div className="relative">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-[-0.02em] sm:text-3xl">Tasks</h1>
-              <p className="mt-1 text-sm text-muted-foreground/90">
-                Crisp execution for your household. Capture fast, assign clearly, finish consistently.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSelectMode(!selectMode)}
-                disabled={viewMode === "workflow"}
-                className="bg-background/65"
-              >
-                <CheckSquare className="mr-2 h-4 w-4" />
-                {selectMode ? "Exit select" : "Select"}
-              </Button>
-              <Button asChild className="hidden sm:inline-flex">
-                <Link href={buildNewTaskHref({ returnTo: listHref })}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  New Task
-                </Link>
-              </Button>
-            </div>
-          </div>
+    <TooltipProvider delayDuration={300}>
+      <div className="relative space-y-3 pb-6">
+        {/* ── Row 1: Title + inline stats ── */}
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <h1 className="text-2xl font-semibold tracking-[-0.02em]">Tasks</h1>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <InsightTile
-              icon={<Rocket className="h-4 w-4 text-primary" />}
-              label="Open work"
-              value={stats.open}
-              detail={`${stats.inProgress} in progress`}
-            />
-            <InsightTile
-              icon={<Clock3 className="h-4 w-4 text-info" />}
-              label="Due today"
-              value={stats.dueTodayCount}
-              detail={stats.dueTodayCount > 0 ? "Time to focus" : "You are clear"}
-            />
-            <InsightTile
-              icon={<AlertTriangle className="h-4 w-4 text-destructive" />}
-              label="Overdue"
-              value={stats.overdueCount}
-              detail={
-                stats.overdueCount > 0
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex items-center gap-1">
+                  <Rocket className="h-3.5 w-3.5 text-primary" />
+                  <span className="font-semibold text-foreground">{stats.open}</span> open
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{stats.inProgress} in progress</TooltipContent>
+            </Tooltip>
+            <span className="text-border">·</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex items-center gap-1">
+                  <Clock3 className="h-3.5 w-3.5 text-info" />
+                  <span className="font-semibold text-foreground">{stats.dueTodayCount}</span> due today
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{stats.dueTodayCount > 0 ? "Time to focus" : "You're clear"}</TooltipContent>
+            </Tooltip>
+            <span className="text-border">·</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className={cn("flex items-center gap-1", stats.overdueCount > 0 && "text-destructive")}>
+                  <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
+                  <span className="font-semibold text-foreground">{stats.overdueCount}</span> overdue
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                {stats.overdueCount > 0
                   ? `Avg ${stats.averageOverdueDays} day${stats.averageOverdueDays === 1 ? "" : "s"} late`
-                  : "No overdue tasks"
-              }
-            />
-            <InsightTile
-              icon={<Sparkles className="h-4 w-4 text-success" />}
-              label="Completed this week"
-              value={stats.doneThisWeek}
-              detail={`${stats.completionRate}% completion`}
-            />
-          </div>
-
-          <div className="mt-4 rounded-2xl border border-border/70 bg-background/72 p-3 backdrop-blur">
-            <div className="mb-2 flex items-center justify-between text-xs font-medium text-muted-foreground">
-              <span>Household execution score</span>
-              <span>{stats.completionRate}%</span>
+                  : "No overdue tasks"}
+              </TooltipContent>
+            </Tooltip>
+            <span className="text-border">·</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex items-center gap-1">
+                  <Sparkles className="h-3.5 w-3.5 text-success" />
+                  <span className="font-semibold text-foreground">{stats.doneThisWeek}</span> done this week
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{stats.completionRate}% completion rate</TooltipContent>
+            </Tooltip>
+            <span className="hidden text-border sm:inline">·</span>
+            <div className="hidden items-center gap-2 sm:flex">
+              <Progress value={stats.completionRate} className="h-1.5 w-16" />
+              <span className="text-[11px] font-medium">{stats.completionRate}%</span>
             </div>
-            <Progress value={stats.completionRate} className="h-2.5" />
           </div>
         </div>
-      </section>
 
-      <section className="tasks-panel rounded-2xl p-4">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-base font-semibold tracking-[-0.01em]">Quick capture</h2>
-            <p className="text-xs text-muted-foreground">
-              One-line add with smart defaults. Press <span className="font-medium">Enter</span> to save.
-            </p>
+        {/* ── Row 2: Search + Filters + Actions ── */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-0 flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              ref={searchInputRef}
+              placeholder="Search tasks…  ( / )"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-9 border-border/70 bg-background/70 pl-9 text-sm"
+            />
           </div>
-          <Badge variant="accent" className="gap-1 text-[11px]">
-            <Command className="h-3 w-3" />
-            N = new task
-          </Badge>
-        </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Input
-            placeholder="Add a task..."
-            value={quickAddTitle}
-            onChange={(e) => setQuickAddTitle(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleQuickAdd()}
-            className="h-10 flex-1 border-border/70 bg-background/70"
-          />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 gap-1.5">
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                Filters
+                {activeFiltersCount > 0 && (
+                  <Badge variant="secondary" className="ml-0.5 px-1.5 text-[10px]">
+                    {activeFiltersCount}
+                  </Badge>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 space-y-3" align="end">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Filters</span>
+                {activeFiltersCount > 0 && (
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={clearAllFilters}>
+                    Reset all
+                  </Button>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Select value={themeId} onValueChange={setThemeId}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Theme" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All themes</SelectItem>
+                    {themes.map((theme) => (
+                      <SelectItem key={theme.id} value={theme.id}>{theme.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={assigneeId} onValueChange={setAssigneeId}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Assignee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All assignees</SelectItem>
+                    {family.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>{member.firstName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={priority} onValueChange={setPriority}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All priorities</SelectItem>
+                    <SelectItem value="0">Normal</SelectItem>
+                    <SelectItem value="1">High</SelectItem>
+                    <SelectItem value="2">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={dueFilter} onValueChange={setDueFilter}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Due date" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Any date</SelectItem>
+                    <SelectItem value="overdue">Overdue</SelectItem>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="week">This week</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={recurring} onValueChange={setRecurring}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Recurring" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="yes">Recurring</SelectItem>
+                    <SelectItem value="no">One-time</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Button
+                  variant={hasDescription ? "default" : "outline"}
+                  size="sm"
+                  className="h-8 w-full text-xs"
+                  onClick={() => setHasDescription(!hasDescription)}
+                >
+                  Has description
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+
           <Button
-            onClick={handleQuickAdd}
-            disabled={!quickAddTitle.trim() || createTask.isPending}
-            className="sm:min-w-[120px]"
+            size="sm"
+            className="h-9 gap-1.5"
+            onClick={() => setQuickCaptureOpen(true)}
           >
-            {createTask.isPending ? "Adding..." : "Add task"}
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">New Task</span>
+            <kbd className="ml-1 hidden rounded bg-primary-foreground/20 px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground/70 sm:inline">
+              N
+            </kbd>
           </Button>
-        </div>
 
-        <div className="flex flex-wrap gap-2">
-          {quickTemplates.map((template) => (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9"
+            onClick={() => setSelectMode(!selectMode)}
+            disabled={viewMode === "workflow"}
+          >
+            <CheckSquare className="mr-1.5 h-3.5 w-3.5" />
+            {selectMode ? "Exit" : "Select"}
+          </Button>
+
+          {notificationsReady ? (
             <Button
-              key={template}
-              type="button"
               variant="ghost"
-              size="xs"
-              className="rounded-full border border-border/65 bg-background/55 hover:border-primary/35 hover:bg-primary/10"
-              onClick={() => setQuickAddTitle(template)}
+              size="sm"
+              className="h-9"
+              onClick={handleSendTestNotification}
+              disabled={testNotificationLoading}
             >
-              {template}
+              <Bell className="h-3.5 w-3.5" />
             </Button>
-          ))}
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-9"
+              onClick={handleEnableNotifications}
+              disabled={notificationLoading}
+            >
+              <Bell className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-background/45 p-2">
-          <div className="flex gap-1">
-            <Button type="button" variant="outline" size="xs" onClick={() => applyQuickDuePreset("today")}>
-              Today
-            </Button>
-            <Button type="button" variant="outline" size="xs" onClick={() => applyQuickDuePreset("tomorrow")}>
-              Tomorrow
-            </Button>
-            <Button type="button" variant="outline" size="xs" onClick={() => applyQuickDuePreset("next_week")}>
-              Next week
-            </Button>
-          </div>
-          <Input
-            type="date"
-            value={quickAddDueDate}
-            onChange={(e) => setQuickAddDueDate(e.target.value)}
-            className="h-8 w-[160px] border-border/65 bg-background/80"
-          />
-          <Select value={quickAddAssigneeId} onValueChange={setQuickAddAssigneeId}>
-            <SelectTrigger className="h-8 w-[170px]">
-              <SelectValue placeholder="Assign to" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Unassigned</SelectItem>
-              {family.map((member) => (
-                <SelectItem key={member.id} value={member.id}>
-                  {member.firstName} {member.lastName ?? ""}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={quickAddPriority} onValueChange={setQuickAddPriority}>
-            <SelectTrigger className="h-8 w-[120px]">
-              <SelectValue placeholder="Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="0">Normal</SelectItem>
-              <SelectItem value="1">High</SelectItem>
-              <SelectItem value="2">Urgent</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </section>
+        {/* ── Row 3: Status tabs + View toggle ── */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {viewMode === "list" ? (
+            <Tabs value={status} onValueChange={setStatus}>
+              <TabsList className="h-9 rounded-xl border border-border/70 bg-card/70 p-0.5 shadow-[inset_0_1px_0_hsl(var(--background)/0.8)]">
+                <TabsTrigger className="rounded-lg px-2.5 text-xs" value="all">
+                  All{counts.all > 0 && <Badge variant="secondary" className="ml-1 scale-90">{counts.all}</Badge>}
+                </TabsTrigger>
+                <TabsTrigger className="rounded-lg px-2.5 text-xs" value="todo">
+                  To Do{counts.todo > 0 && <Badge variant="secondary" className="ml-1 scale-90">{counts.todo}</Badge>}
+                </TabsTrigger>
+                <TabsTrigger className="rounded-lg px-2.5 text-xs" value="in_progress">
+                  Active{counts.in_progress > 0 && <Badge variant="info" className="ml-1 scale-90">{counts.in_progress}</Badge>}
+                </TabsTrigger>
+                <TabsTrigger className="rounded-lg px-2.5 text-xs" value="done">
+                  Done{counts.done > 0 && <Badge variant="success" className="ml-1 scale-90">{counts.done}</Badge>}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          ) : (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Columns3 className="h-3.5 w-3.5" />
+              Workflow view — tasks grouped by status
+            </div>
+          )}
 
-      <section className="tasks-panel rounded-2xl p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-sm font-semibold">Filters & view</h2>
-            {activeFiltersCount > 0 && (
-              <Badge variant="secondary" className="text-[11px]">
-                {activeFiltersCount} active
-              </Badge>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center rounded-lg border border-border/70 p-0.5">
             <Button
               variant={viewMode === "list" ? "secondary" : "ghost"}
               size="sm"
-              className="h-8"
+              className="h-7 rounded-md px-2 text-xs"
               onClick={() => setViewMode("list")}
             >
-              <LayoutList className="mr-1 h-4 w-4" />
+              <LayoutList className="mr-1 h-3.5 w-3.5" />
               List
             </Button>
             <Button
               variant={viewMode === "workflow" ? "secondary" : "ghost"}
               size="sm"
-              className="h-8"
+              className="h-7 rounded-md px-2 text-xs"
               onClick={() => setViewMode("workflow")}
             >
-              <Columns3 className="mr-1 h-4 w-4" />
-              Workflow
+              <Columns3 className="mr-1 h-3.5 w-3.5" />
+              Board
             </Button>
-            {notificationsReady ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8"
-                onClick={handleSendTestNotification}
-                disabled={testNotificationLoading}
-              >
-                <Bell className="mr-1 h-4 w-4" />
-                {testNotificationLoading ? "Sending..." : "Test alert"}
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8"
-                onClick={handleEnableNotifications}
-                disabled={notificationLoading}
-              >
-                <Bell className="mr-1 h-4 w-4" />
-                {notificationLoading ? "Enabling..." : "Enable alerts"}
-              </Button>
-            )}
           </div>
         </div>
 
-        <div className="relative mb-3">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            ref={searchInputRef}
-            placeholder="Search tasks... (press / to focus)"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-10 border-border/70 bg-background/70 pl-9"
-          />
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <Select value={themeId} onValueChange={setThemeId}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Theme" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All themes</SelectItem>
-              {themes.map((theme) => (
-                <SelectItem key={theme.id} value={theme.id}>{theme.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={assigneeId} onValueChange={setAssigneeId}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Assignee" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All assignees</SelectItem>
-              {family.map((member) => (
-                <SelectItem key={member.id} value={member.id}>{member.firstName}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={priority} onValueChange={setPriority}>
-            <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="0">Normal</SelectItem>
-              <SelectItem value="1">High</SelectItem>
-              <SelectItem value="2">Urgent</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={dueFilter} onValueChange={setDueFilter}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Due" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Any date</SelectItem>
-              <SelectItem value="overdue">Overdue</SelectItem>
-              <SelectItem value="today">Today</SelectItem>
-              <SelectItem value="week">This week</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={recurring} onValueChange={setRecurring}>
-            <SelectTrigger className="w-[130px]">
-              <SelectValue placeholder="Recurring" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="yes">Recurring</SelectItem>
-              <SelectItem value="no">One-time</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Button
-            variant={hasDescription ? "default" : "outline"}
-            size="sm"
-            onClick={() => setHasDescription(!hasDescription)}
-          >
-            Has description
-          </Button>
-          {activeFiltersCount > 0 && (
-            <Button variant="ghost" size="sm" onClick={clearAllFilters}>
-              Reset filters
-            </Button>
-          )}
-        </div>
-      </section>
-
-      {/* Status Tabs with counts */}
-      {viewMode === "list" ? (
-        <Tabs value={status} onValueChange={setStatus}>
-          <TabsList className="h-10 rounded-2xl border border-border/70 bg-card/70 p-1 shadow-[inset_0_1px_0_hsl(var(--background)/0.8)]">
-            <TabsTrigger className="rounded-xl px-3" value="all">All {counts.all > 0 && <Badge variant="secondary" className="ml-1.5">{counts.all}</Badge>}</TabsTrigger>
-            <TabsTrigger className="rounded-xl px-3" value="todo">To Do {counts.todo > 0 && <Badge variant="secondary" className="ml-1.5">{counts.todo}</Badge>}</TabsTrigger>
-            <TabsTrigger className="rounded-xl px-3" value="in_progress">In Progress {counts.in_progress > 0 && <Badge variant="info" className="ml-1.5">{counts.in_progress}</Badge>}</TabsTrigger>
-            <TabsTrigger className="rounded-xl px-3" value="done">Done {counts.done > 0 && <Badge variant="success" className="ml-1.5">{counts.done}</Badge>}</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      ) : (
-        <div className="tasks-panel flex items-center gap-2 rounded-2xl px-3 py-2 text-sm text-muted-foreground">
-          <Columns3 className="h-4 w-4" />
-          Workflow view groups all statuses into execution lanes.
-        </div>
-      )}
-
-      {/* Task List */}
-      {isLoading ? (
-        <div className="space-y-2">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 animate-pulse rounded-md bg-muted" />
-          ))}
-        </div>
-      ) : (
-        <>
-          {viewMode === "list" ? (
-            <TaskList
-              tasks={filteredTasks}
-              assignees={family}
-              emptyMessage={search || activeFiltersCount > 0 ? "No tasks match your filters" : "No tasks found"}
-              selectable={selectMode}
-              selectedIds={selectedIds}
-              onSelectionChange={setSelectedIds}
-              listHref={listHref}
-              bulkToolbar={
-                selectMode && selectedIds.size > 0 ? (
-                  <div className="mb-2 flex items-center gap-2 rounded-lg border bg-muted/50 px-4 py-2">
-                    <span className="text-sm font-medium">{selectedIds.size} selected</span>
-                    <Button size="sm" onClick={handleBulkComplete}>
-                      <CheckSquare className="mr-2 h-4 w-4" />
-                      Complete
-                    </Button>
-                    <Button size="sm" variant="destructive" onClick={handleBulkDelete}>
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => { setSelectedIds(new Set()); setSelectMode(false); }}>
-                      <X className="mr-2 h-4 w-4" />
-                      Cancel
-                    </Button>
-                  </div>
-                ) : undefined
-              }
-            />
-          ) : (
-            <div className="grid gap-4 xl:grid-cols-3">
-              {workflowColumns.map((column) => (
-                <section key={column.id} className={cn("tasks-lane-panel rounded-2xl p-3", column.laneClass)}>
-                  <div className="mb-3 flex items-center justify-between">
-                    <div>
-                      <h3 className="text-sm font-semibold">{column.title}</h3>
-                      <p className="text-xs text-muted-foreground">{column.subtitle}</p>
+        {/* ── Task list / Workflow grid ── */}
+        {isLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-20 animate-pulse rounded-md bg-muted" />
+            ))}
+          </div>
+        ) : (
+          <>
+            {viewMode === "list" ? (
+              <TaskList
+                tasks={filteredTasks}
+                assignees={family}
+                emptyMessage={search || activeFiltersCount > 0 ? "No tasks match your filters" : "No tasks found"}
+                selectable={selectMode}
+                selectedIds={selectedIds}
+                onSelectionChange={setSelectedIds}
+                listHref={`/tasks`}
+                bulkToolbar={
+                  selectMode && selectedIds.size > 0 ? (
+                    <div className="mb-2 flex items-center gap-2 rounded-lg border bg-muted/50 px-4 py-2">
+                      <span className="text-sm font-medium">{selectedIds.size} selected</span>
+                      <Button size="sm" onClick={handleBulkComplete}>
+                        <CheckSquare className="mr-2 h-4 w-4" />
+                        Complete
+                      </Button>
+                      <Button size="sm" variant="destructive" onClick={handleBulkDelete}>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => { setSelectedIds(new Set()); setSelectMode(false); }}>
+                        <X className="mr-2 h-4 w-4" />
+                        Cancel
+                      </Button>
                     </div>
-                    <Badge variant={column.badgeVariant}>{column.tasks.length}</Badge>
-                  </div>
-                  {column.tasks.length === 0 ? (
-                    <div className="rounded-lg border border-dashed p-6 text-center text-xs text-muted-foreground">
-                      Nothing here right now.
+                  ) : undefined
+                }
+              />
+            ) : (
+              <div className="grid gap-4 xl:grid-cols-3">
+                {workflowColumns.map((column) => (
+                  <section key={column.id} className={cn("tasks-lane-panel rounded-2xl p-3", column.laneClass)}>
+                    <div className="mb-3 flex items-center justify-between">
+                      <div>
+                        <h3 className="text-sm font-semibold">{column.title}</h3>
+                        <p className="text-xs text-muted-foreground">{column.subtitle}</p>
+                      </div>
+                      <Badge variant={column.badgeVariant}>{column.tasks.length}</Badge>
                     </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {column.tasks.map((task) => (
-                        <TaskCard
-                          key={task.id}
-                          task={task}
-                          assignees={family}
-                          listHref={listHref}
-                        />
+                    {column.tasks.length === 0 ? (
+                      <div className="rounded-lg border border-dashed p-6 text-center text-xs text-muted-foreground">
+                        Nothing here right now.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {column.tasks.map((task) => (
+                          <TaskCard
+                            key={task.id}
+                            task={task}
+                            assignees={family}
+                            listHref={`/tasks`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                ))}
+              </div>
+            )}
+
+            {viewMode === "workflow" && noTasksWithCurrentFilters && (
+              <div className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">
+                <p className="font-medium text-foreground">No matching tasks</p>
+                <p className="mt-1">Adjust filters or create a fresh task to keep momentum.</p>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── Quick Capture Dialog ── */}
+        <Dialog open={quickCaptureOpen} onOpenChange={setQuickCaptureOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Quick capture</DialogTitle>
+              <DialogDescription>Add a task with smart defaults. Press Enter to save.</DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <Input
+                  ref={quickAddInputRef}
+                  placeholder="What needs to be done?"
+                  value={quickAddTitle}
+                  onChange={(e) => setQuickAddTitle(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleQuickAdd()}
+                  className="h-10 flex-1"
+                />
+                <Button
+                  onClick={handleQuickAdd}
+                  disabled={!quickAddTitle.trim() || createTask.isPending}
+                >
+                  {createTask.isPending ? "Adding…" : "Add"}
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                {quickTemplates.map((template) => (
+                  <Button
+                    key={template}
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    className="rounded-full border border-border/65 bg-background/55 text-xs hover:border-primary/35 hover:bg-primary/10"
+                    onClick={() => {
+                      setQuickAddTitle(template);
+                      quickAddInputRef.current?.focus();
+                    }}
+                  >
+                    {template}
+                  </Button>
+                ))}
+              </div>
+
+              <div className="space-y-2 rounded-lg border border-border/60 bg-muted/30 p-3">
+                <div className="flex flex-wrap gap-1.5">
+                  <Button type="button" variant="outline" size="xs" onClick={() => applyQuickDuePreset("today")}>
+                    Today
+                  </Button>
+                  <Button type="button" variant="outline" size="xs" onClick={() => applyQuickDuePreset("tomorrow")}>
+                    Tomorrow
+                  </Button>
+                  <Button type="button" variant="outline" size="xs" onClick={() => applyQuickDuePreset("next_week")}>
+                    Next week
+                  </Button>
+                  <Input
+                    type="date"
+                    value={quickAddDueDate}
+                    onChange={(e) => setQuickAddDueDate(e.target.value)}
+                    className="h-7 w-[140px] text-xs"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Select value={quickAddAssigneeId} onValueChange={setQuickAddAssigneeId}>
+                    <SelectTrigger className="h-8 flex-1 text-xs">
+                      <SelectValue placeholder="Assign to" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Unassigned</SelectItem>
+                      {family.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.firstName} {member.lastName ?? ""}
+                        </SelectItem>
                       ))}
-                    </div>
-                  )}
-                </section>
-              ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={quickAddPriority} onValueChange={setQuickAddPriority}>
+                    <SelectTrigger className="h-8 w-[120px] text-xs">
+                      <SelectValue placeholder="Priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">Normal</SelectItem>
+                      <SelectItem value="1">High</SelectItem>
+                      <SelectItem value="2">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
-          )}
-
-          {viewMode === "workflow" && noTasksWithCurrentFilters && (
-            <div className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">
-              <p className="font-medium text-foreground">No matching tasks</p>
-              <p className="mt-1">Adjust filters or create a fresh task to keep momentum.</p>
-            </div>
-          )}
-        </>
-      )}
-
-    </div>
-  );
-}
-
-function InsightTile({
-  icon,
-  label,
-  value,
-  detail,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: number;
-  detail: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-border/70 bg-background/74 px-3 py-3 shadow-[inset_0_1px_0_hsl(var(--background)/0.9)] backdrop-blur">
-      <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
-        {icon}
-        <span>{label}</span>
+          </DialogContent>
+        </Dialog>
       </div>
-      <div className="text-2xl font-semibold tracking-[-0.02em]">{value}</div>
-      <p className="mt-1 text-xs text-muted-foreground/90">{detail}</p>
-    </div>
+    </TooltipProvider>
   );
 }
 
 export default function TasksPage() {
   return (
     <Suspense fallback={
-      <div className="space-y-6">
+      <div className="space-y-3">
         <div className="h-8 w-48 animate-pulse rounded bg-muted" />
-        <div className="h-10 w-full animate-pulse rounded bg-muted" />
+        <div className="h-9 w-full animate-pulse rounded bg-muted" />
         <div className="flex gap-2">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-10 w-32 animate-pulse rounded bg-muted" />
+            <div key={i} className="h-9 w-24 animate-pulse rounded bg-muted" />
           ))}
         </div>
         <div className="space-y-2">
