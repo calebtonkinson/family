@@ -563,7 +563,7 @@ export function Chat({
                         <ResearchPresentationView presentation={presentation} />
                       ) : (
                         <div className={cn(
-                          "prose prose-sm max-w-none whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere] dark:prose-invert",
+                          "prose prose-sm max-w-none break-words text-sm leading-relaxed [overflow-wrap:anywhere] dark:prose-invert",
                           "prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5",
                           "prose-headings:mt-2 prose-headings:mb-1 prose-headings:font-semibold prose-headings:break-words prose-headings:[overflow-wrap:anywhere]",
                           "prose-pre:max-w-full prose-pre:overflow-x-auto prose-pre:whitespace-pre-wrap prose-pre:break-words prose-pre:[overflow-wrap:anywhere] prose-pre:bg-muted prose-pre:text-foreground",
