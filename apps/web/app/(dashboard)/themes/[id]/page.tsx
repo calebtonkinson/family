@@ -13,7 +13,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,11 +35,11 @@ import {
   Folder,
   CheckSquare,
   Plus,
-  Calendar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buildNewTaskHref } from "@/lib/task-navigation";
 import { ThemeIcon } from "@/components/themes/theme-icon";
+import { ProjectCard } from "@/components/projects/project-card";
 
 interface ThemePageProps {
   params: Promise<{ id: string }>;
@@ -162,6 +161,7 @@ export default function ThemePage({ params }: ThemePageProps) {
   const todoTasks = tasks.filter((t) => t.status === "todo");
   const inProgressTasks = tasks.filter((t) => t.status === "in_progress");
   const doneTasks = tasks.filter((t) => t.status === "done");
+  const themeColor = theme.color || "#4f73d9";
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -209,8 +209,7 @@ export default function ThemePage({ params }: ThemePageProps) {
         </div>
       </div>
 
-      {/* Theme Info Card */}
-      <Card className="mb-6">
+      <Card className="feature-panel mb-6 overflow-hidden">
         <CardHeader>
           {isEditing ? (
             <div className="flex items-center justify-between">
@@ -227,18 +226,38 @@ export default function ThemePage({ params }: ThemePageProps) {
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-4">
-              <div
-                className="flex h-14 w-14 items-center justify-center rounded-xl"
-                style={{ backgroundColor: theme.color || "#6366f1" }}
-              >
-                <ThemeIcon icon={theme.icon} name={theme.name} size="lg" />
-              </div>
-              <div>
-                <CardTitle className="text-2xl">{theme.name}</CardTitle>
-                <CardDescription className="mt-1">
-                  Created {format(new Date(theme.createdAt), "MMMM d, yyyy")}
-                </CardDescription>
+            <div
+              className="rounded-[1.6rem] p-5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]"
+              style={{
+                background: `linear-gradient(160deg, ${themeColor} 0%, ${themeColor}cc 100%)`,
+              }}
+            >
+              <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-[1.35rem] border border-white/20 bg-white/12">
+                    <ThemeIcon icon={theme.icon} name={theme.name} size="lg" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-3xl text-white">{theme.name}</CardTitle>
+                    <CardDescription className="mt-1 text-white/75">
+                      Created {format(new Date(theme.createdAt), "MMMM d, yyyy")}
+                    </CardDescription>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-2xl border border-white/15 bg-white/10 px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">Projects</p>
+                    <p className="mt-2 text-2xl font-semibold">{projects.length}</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/15 bg-white/10 px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">Tasks</p>
+                    <p className="mt-2 text-2xl font-semibold">{tasks.length}</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/15 bg-white/10 px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">Done</p>
+                    <p className="mt-2 text-2xl font-semibold">{doneTasks.length}</p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -289,21 +308,19 @@ export default function ThemePage({ params }: ThemePageProps) {
               </div>
             </form>
           ) : (
-            <div className="flex gap-6">
-              <div className="flex items-center gap-2">
-                <Folder className="h-5 w-5 text-muted-foreground" />
-                <span className="text-lg font-medium">{projects.length}</span>
-                <span className="text-muted-foreground">projects</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckSquare className="h-5 w-5 text-muted-foreground" />
-                <span className="text-lg font-medium">{tasks.length}</span>
-                <span className="text-muted-foreground">tasks</span>
-              </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="outline" className="rounded-full px-3 py-1">
+                <Folder className="mr-1.5 h-3.5 w-3.5" />
+                {projects.length} projects
+              </Badge>
+              <Badge variant="outline" className="rounded-full px-3 py-1">
+                <CheckSquare className="mr-1.5 h-3.5 w-3.5" />
+                {tasks.length} tasks
+              </Badge>
               {doneTasks.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <Badge variant="success">{doneTasks.length} completed</Badge>
-                </div>
+                <Badge variant="success" className="rounded-full px-3 py-1">
+                  {doneTasks.length} completed
+                </Badge>
               )}
             </div>
           )}
@@ -311,7 +328,7 @@ export default function ThemePage({ params }: ThemePageProps) {
       </Card>
 
       {/* Projects Section */}
-      <Card className="mb-6">
+      <Card className="feature-panel mb-6">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
@@ -334,40 +351,13 @@ export default function ThemePage({ params }: ThemePageProps) {
               ))}
             </div>
           ) : projects.length > 0 ? (
-            <div className="space-y-3">
+            <div className="grid gap-3 md:grid-cols-2">
               {projects.map((project) => (
-                <Link key={project.id} href={`/projects/${project.id}`}>
-                  <div className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50">
-                    <div>
-                      <p className="font-medium">{project.name}</p>
-                      {project.description && (
-                        <p className="text-sm text-muted-foreground line-clamp-1">
-                          {project.description}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      {project.dueDate && (
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Calendar className="h-4 w-4" />
-                          {format(new Date(project.dueDate), "MMM d")}
-                        </div>
-                      )}
-                      <Badge variant={project.isActive ? "default" : "secondary"}>
-                        {project.isActive ? "Active" : "Inactive"}
-                      </Badge>
-                      {project.taskCount !== undefined && (
-                        <span className="text-sm text-muted-foreground">
-                          {project.completedTaskCount || 0}/{project.taskCount} tasks
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </Link>
+                <ProjectCard key={project.id} project={project} />
               ))}
             </div>
           ) : (
-            <p className="py-4 text-center text-muted-foreground">
+            <p className="rounded-2xl border border-dashed border-border/70 bg-background/50 py-8 text-center text-muted-foreground">
               No projects under this theme yet.
             </p>
           )}
@@ -375,7 +365,7 @@ export default function ThemePage({ params }: ThemePageProps) {
       </Card>
 
       {/* Tasks Section */}
-      <Card>
+      <Card className="feature-panel">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
@@ -441,7 +431,7 @@ export default function ThemePage({ params }: ThemePageProps) {
               )}
             </div>
           ) : (
-            <p className="py-4 text-center text-muted-foreground">
+            <p className="rounded-2xl border border-dashed border-border/70 bg-background/50 py-8 text-center text-muted-foreground">
               No tasks under this theme yet.
             </p>
           )}
@@ -477,7 +467,7 @@ function TaskItem({ task }: { task: { id: string; title: string; status: string;
   return (
     <Link href={`/tasks/${task.id}`}>
       <div className={cn(
-        "flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50",
+        "flex items-center justify-between rounded-2xl border border-border/75 bg-[linear-gradient(180deg,hsl(var(--card)/0.96),hsl(var(--card)/0.86))] p-3 shadow-[inset_0_1px_0_hsl(var(--background)/0.92)] transition-colors hover:bg-muted/30",
         task.status === "done" && "opacity-60"
       )}>
         <div className="flex items-center gap-3">

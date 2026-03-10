@@ -26,12 +26,28 @@ import {
 
 export const conversationsRouter = new OpenAPIHono();
 
+function buildConversationPreview(content: string | null) {
+  if (!content) return null;
+
+  const cleaned = content
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("Attachment:"))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!cleaned) return null;
+  return cleaned.length <= 110 ? cleaned : `${cleaned.slice(0, 107).trimEnd()}...`;
+}
+
 const conversationResponseSchema = z.object({
   id: z.string().uuid(),
   householdId: z.string().uuid(),
   startedById: z.string().uuid(),
   title: z.string().nullable(),
   summary: z.string().nullable(),
+  previewText: z.string().nullable().optional(),
   provider: z.enum(["anthropic", "openai", "google"]),
   model: z.string(),
   createdAt: z.string(),
@@ -175,6 +191,34 @@ conversationsRouter.openapi(listConversationsRoute, async (c) => {
     : [];
 
   const messageCountMap = new Map(messageCounts.map((mc) => [mc.conversationId, Number(mc.count)]));
+  const latestMessages = conversationIds.length > 0
+    ? await db
+        .select({
+          conversationId: conversationMessages.conversationId,
+          content: conversationMessages.content,
+          sequence: conversationMessages.sequence,
+        })
+        .from(conversationMessages)
+        .where(
+          and(
+            inArray(conversationMessages.conversationId, conversationIds),
+            inArray(conversationMessages.role, ["user", "assistant"]),
+          ),
+        )
+        .orderBy(
+          desc(conversationMessages.conversationId),
+          desc(conversationMessages.sequence),
+        )
+    : [];
+
+  const previewTextMap = new Map<string, string>();
+  for (const message of latestMessages) {
+    if (previewTextMap.has(message.conversationId)) continue;
+    const preview = buildConversationPreview(message.content);
+    if (preview) {
+      previewTextMap.set(message.conversationId, preview);
+    }
+  }
 
   const total = Number(countResult[0]?.count ?? 0);
 
@@ -182,6 +226,7 @@ conversationsRouter.openapi(listConversationsRoute, async (c) => {
     ...conv,
     createdAt: conv.createdAt.toISOString(),
     updatedAt: conv.updatedAt.toISOString(),
+    previewText: previewTextMap.get(conv.id) ?? null,
     messageCount: messageCountMap.get(conv.id) || 0,
   }));
 

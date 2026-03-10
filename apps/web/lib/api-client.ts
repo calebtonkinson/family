@@ -17,7 +17,8 @@ class ApiClient {
       throw new Error("Not authenticated");
     }
 
-    const accessToken = (session as unknown as { accessToken?: string }).accessToken;
+    const accessToken = (session as unknown as { accessToken?: string })
+      .accessToken;
     if (!accessToken) {
       throw new Error("No access token available");
     }
@@ -30,7 +31,7 @@ class ApiClient {
 
   private async request<T>(
     path: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
   ): Promise<T> {
     const headers = await this.getAuthHeader();
 
@@ -76,7 +77,7 @@ class ApiClient {
     }
     const query = searchParams.toString();
     return this.request<{ data: Task[]; meta: PaginationMeta }>(
-      `/tasks${query ? `?${query}` : ""}`
+      `/tasks${query ? `?${query}` : ""}`,
     );
   }
 
@@ -128,7 +129,7 @@ class ApiClient {
     }
     const query = searchParams.toString();
     return this.request<{ data: Recipe[]; meta: PaginationMeta }>(
-      `/recipes${query ? `?${query}` : ""}`
+      `/recipes${query ? `?${query}` : ""}`,
     );
   }
 
@@ -150,6 +151,18 @@ class ApiClient {
         message: string | null;
       };
     }>("/recipes/import-from-files", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async importRecipeFromUrl(data: ImportRecipeFromUrlInput) {
+    return this.request<{
+      data: {
+        recipe: { id: string; title: string };
+        message: string | null;
+      };
+    }>("/recipes/import-from-url", {
       method: "POST",
       body: JSON.stringify(data),
     });
@@ -184,18 +197,17 @@ class ApiClient {
     }
     const query = searchParams.toString();
     return this.request<{ data: MealPlan[] }>(
-      `/meal-plans${query ? `?${query}` : ""}`
+      `/meal-plans${query ? `?${query}` : ""}`,
     );
   }
 
   async bulkUpsertMealPlans(data: BulkUpsertMealPlansInput) {
-    return this.request<{ data: { created: number; updated: number; total: number } }>(
-      "/meal-plans/bulk",
-      {
-        method: "PUT",
-        body: JSON.stringify(data),
-      },
-    );
+    return this.request<{
+      data: { created: number; updated: number; total: number };
+    }>("/meal-plans/bulk", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
   }
 
   async updateMealPlan(id: string, data: UpdateMealPlanInput) {
@@ -218,7 +230,9 @@ class ApiClient {
     );
   }
 
-  async updateMealPlanningPreferences(data: UpdateMealPlanningPreferencesInput) {
+  async updateMealPlanningPreferences(
+    data: UpdateMealPlanningPreferencesInput,
+  ) {
     return this.request<{ data: MealPlanningPreference }>(
       "/meal-planning-preferences",
       {
@@ -229,11 +243,7 @@ class ApiClient {
   }
 
   // Lists
-  async getLists(params?: {
-    search?: string;
-    page?: number;
-    limit?: number;
-  }) {
+  async getLists(params?: { search?: string; page?: number; limit?: number }) {
     const searchParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
@@ -244,7 +254,7 @@ class ApiClient {
     }
     const query = searchParams.toString();
     return this.request<{ data: List[]; meta: PaginationMeta }>(
-      `/lists${query ? `?${query}` : ""}`
+      `/lists${query ? `?${query}` : ""}`,
     );
   }
 
@@ -278,10 +288,9 @@ class ApiClient {
   }
 
   async pinList(id: string) {
-    return this.request<{ data: { pinId: string; listId: string; position: number } }>(
-      `/lists/${id}/pin`,
-      { method: "POST" }
-    );
+    return this.request<{
+      data: { pinId: string; listId: string; position: number };
+    }>(`/lists/${id}/pin`, { method: "POST" });
   }
 
   async unpinList(id: string) {
@@ -305,9 +314,9 @@ class ApiClient {
   }
 
   async getHouseholdUsers() {
-    return this.request<{ data: { id: string; name: string | null; email: string }[] }>(
-      "/household/users"
-    );
+    return this.request<{
+      data: { id: string; name: string | null; email: string }[];
+    }>("/household/users");
   }
 
   async updateListShares(listId: string, userIds: string[]) {
@@ -316,25 +325,31 @@ class ApiClient {
       {
         method: "PATCH",
         body: JSON.stringify({ userIds }),
-      }
+      },
     );
   }
 
   async updateListItem(
     listId: string,
     itemId: string,
-    data: { content?: string; markedOff?: boolean }
+    data: { content?: string; markedOff?: boolean },
   ) {
-    return this.request<{ data: ListItem }>(`/lists/${listId}/items/${itemId}`, {
-      method: "PATCH",
-      body: JSON.stringify(data),
-    });
+    return this.request<{ data: ListItem }>(
+      `/lists/${listId}/items/${itemId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      },
+    );
   }
 
   async deleteListItem(listId: string, itemId: string) {
-    return this.request<{ success: boolean }>(`/lists/${listId}/items/${itemId}`, {
-      method: "DELETE",
-    });
+    return this.request<{ success: boolean }>(
+      `/lists/${listId}/items/${itemId}`,
+      {
+        method: "DELETE",
+      },
+    );
   }
 
   // Comments
@@ -353,9 +368,12 @@ class ApiClient {
   }
 
   async deleteComment(taskId: string, commentId: string) {
-    return this.request<{ success: boolean }>(`/tasks/${taskId}/comments/${commentId}`, {
-      method: "DELETE",
-    });
+    return this.request<{ success: boolean }>(
+      `/tasks/${taskId}/comments/${commentId}`,
+      {
+        method: "DELETE",
+      },
+    );
   }
 
   // Projects
@@ -375,7 +393,7 @@ class ApiClient {
     }
     const query = searchParams.toString();
     return this.request<{ data: Project[]; meta: PaginationMeta }>(
-      `/projects${query ? `?${query}` : ""}`
+      `/projects${query ? `?${query}` : ""}`,
     );
   }
 
@@ -480,16 +498,20 @@ class ApiClient {
     }
     const query = searchParams.toString();
     return this.request<{ data: Conversation[]; meta: PaginationMeta }>(
-      `/conversations${query ? `?${query}` : ""}`
+      `/conversations${query ? `?${query}` : ""}`,
     );
   }
 
   async getConversation(id: string) {
-    return this.request<{ data: ConversationWithMessages }>(`/conversations/${id}`);
+    return this.request<{ data: ConversationWithMessages }>(
+      `/conversations/${id}`,
+    );
   }
 
   async getTaskConversation(taskId: string) {
-    return this.request<{ data: Conversation | null }>(`/conversations/task/${taskId}`);
+    return this.request<{ data: Conversation | null }>(
+      `/conversations/task/${taskId}`,
+    );
   }
 
   async createConversation(data: CreateConversationInput) {
@@ -518,8 +540,8 @@ class ApiClient {
     return this.request<CreateResearchPlanResponse>(
       `/conversations/${conversationId}/research/plan`,
       {
-      method: "POST",
-      body: JSON.stringify(data),
+        method: "POST",
+        body: JSON.stringify(data),
       },
     );
   }
@@ -595,14 +617,24 @@ export interface Task {
   createdById: string;
   dueDate: string | null;
   isRecurring: boolean;
-  recurrenceType: "daily" | "weekly" | "monthly" | "yearly" | "custom_days" | null;
+  recurrenceType:
+    | "daily"
+    | "weekly"
+    | "monthly"
+    | "yearly"
+    | "custom_days"
+    | null;
   recurrenceInterval: number | null;
   nextDueDate: string | null;
   lastCompletedAt: string | null;
   priority: number;
   createdAt: string;
   updatedAt: string;
-  assignedTo?: { id: string; firstName: string; lastName: string | null } | null;
+  assignedTo?: {
+    id: string;
+    firstName: string;
+    lastName: string | null;
+  } | null;
   theme?: { id: string; name: string; color: string | null } | null;
   project?: { id: string; name: string } | null;
 }
@@ -750,6 +782,7 @@ export interface Conversation {
   startedById: string;
   title: string | null;
   summary: string | null;
+  previewText?: string | null;
   provider: "anthropic" | "openai" | "google";
   model: string;
   createdAt: string;
@@ -820,7 +853,13 @@ export interface ResearchPlan {
 
 export interface ResearchRunListItem {
   id: string;
-  status: "planning" | "running" | "completed" | "completed_with_warnings" | "failed" | "canceled";
+  status:
+    | "planning"
+    | "running"
+    | "completed"
+    | "completed_with_warnings"
+    | "failed"
+    | "canceled";
   effort: ResearchEffort;
   query: string;
   createdAt: string;
@@ -887,7 +926,13 @@ export interface ResearchReport {
 export interface ResearchRunData {
   runId: string;
   conversationId: string;
-  status: "planning" | "running" | "completed" | "completed_with_warnings" | "failed" | "canceled";
+  status:
+    | "planning"
+    | "running"
+    | "completed"
+    | "completed_with_warnings"
+    | "failed"
+    | "canceled";
   query: string;
   effort: ResearchEffort;
   recencyDays: number | null;
@@ -955,7 +1000,13 @@ export interface UpdateTaskInput {
   assignedToId?: string | null;
   dueDate?: string | null;
   isRecurring?: boolean;
-  recurrenceType?: "daily" | "weekly" | "monthly" | "yearly" | "custom_days" | null;
+  recurrenceType?:
+    | "daily"
+    | "weekly"
+    | "monthly"
+    | "yearly"
+    | "custom_days"
+    | null;
   recurrenceInterval?: number | null;
   priority?: number;
   status?: "todo" | "in_progress" | "done" | "archived";
@@ -1009,6 +1060,11 @@ export interface ImportRecipeFileInput {
 
 export interface ImportRecipeFromFilesInput {
   files: ImportRecipeFileInput[];
+  prompt?: string;
+}
+
+export interface ImportRecipeFromUrlInput {
+  url: string;
   prompt?: string;
 }
 

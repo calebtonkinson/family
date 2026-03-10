@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Calendar, CheckCircle2 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import type { Project } from "@/lib/api-client";
 
 interface ProjectCardProps {
@@ -20,18 +19,18 @@ export function ProjectCard({ project }: ProjectCardProps) {
 
   return (
     <Link href={`/projects/${project.id}`}>
-      <Card className="transition-colors hover:bg-muted/50">
-        <CardHeader className="pb-2">
+      <Card className="feature-panel overflow-hidden">
+        <CardHeader className="pb-1.5 md:pb-2">
           <div className="flex items-start justify-between">
-            <CardTitle className="text-lg">{project.name}</CardTitle>
-            {!project.isActive && (
-              <Badge variant="secondary">Archived</Badge>
-            )}
+            <CardTitle className="line-clamp-2 text-base md:text-lg">
+              {project.name}
+            </CardTitle>
+            {!project.isActive && <Badge variant="secondary">Archived</Badge>}
           </div>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-2.5 md:space-y-3">
           {project.description && (
-            <p className="text-sm text-muted-foreground line-clamp-2">
+            <p className="line-clamp-2 text-sm leading-5 text-muted-foreground">
               {project.description}
             </p>
           )}
@@ -40,7 +39,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
             {project.theme && (
               <Badge
                 variant="outline"
-                className="text-xs"
+                className="rounded-full text-xs"
                 style={{ borderColor: project.theme.color || undefined }}
               >
                 {project.theme.name}

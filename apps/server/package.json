@@ -8,7 +8,9 @@
     "build": "tsc && node ../../tooling/scripts/fix-esm-extensions.mjs dist",
     "start": "node --env-file=.env dist/index.js",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --config vitest.config.ts",
+    "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.33",
@@ -37,6 +39,9 @@
     "eslint": "^9.19.0",
     "react": "^19.0.0",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vite": "^7.3.1",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^4.0.18"
   }
 }

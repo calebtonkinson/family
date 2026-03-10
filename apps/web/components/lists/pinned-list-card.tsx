@@ -10,20 +10,21 @@ interface PinnedListCardProps {
   compact?: boolean;
 }
 
-export function PinnedListCard({
-  list,
-  compact = false,
-}: PinnedListCardProps) {
+export function PinnedListCard({ list, compact = false }: PinnedListCardProps) {
   const activeItems = list.items.filter((i) => !i.markedOffAt);
-  const displayItems = compact ? activeItems.slice(0, 3) : activeItems.slice(0, 5);
+  const displayItems = compact
+    ? activeItems.slice(0, 2)
+    : activeItems.slice(0, 4);
 
   return (
     <Link href={`/lists/${list.id}`} className="block">
-      <Card className="hover:shadow-lg transition-shadow h-full">
-        <CardHeader className="pb-2">
+      <Card className="feature-panel h-full overflow-hidden">
+        <CardHeader className="pb-1.5 md:pb-2">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <List className="h-4 w-4 text-primary shrink-0" />
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[linear-gradient(180deg,hsl(var(--primary)/0.18),hsl(var(--primary)/0.08))] md:h-8 md:w-8 md:rounded-xl">
+                <List className="h-4 w-4 shrink-0 text-primary" />
+              </span>
               <h3 className="font-semibold text-sm truncate">{list.name}</h3>
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -36,7 +37,7 @@ export function PinnedListCard({
             <ul className="space-y-1">
               {displayItems.map((item) => (
                 <li key={item.id} className="flex items-center gap-2 text-sm">
-                  <span className="w-4 h-4 shrink-0 rounded border border-muted" />
+                  <span className="h-4 w-4 shrink-0 rounded-md border border-border/80 bg-background/80" />
                   <span className="truncate">{item.content}</span>
                 </li>
               ))}

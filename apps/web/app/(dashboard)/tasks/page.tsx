@@ -1,7 +1,14 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef, useCallback, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import {
+  useState,
+  useMemo,
+  useEffect,
+  useRef,
+  useCallback,
+  Suspense,
+} from "react";
+import { useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   format,
@@ -16,7 +23,12 @@ import {
   isPast,
   isToday,
 } from "date-fns";
-import { useTasks, useCreateTask, useUpdateTask, useDeleteTask } from "@/hooks/use-tasks";
+import {
+  useTasks,
+  useCreateTask,
+  useUpdateTask,
+  useDeleteTask,
+} from "@/hooks/use-tasks";
 import { useThemes } from "@/hooks/use-themes";
 import { useFamilyMembers } from "@/hooks/use-family-members";
 import { TaskList } from "@/components/tasks/task-list";
@@ -40,7 +52,11 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Tooltip,
   TooltipContent,
@@ -75,22 +91,35 @@ import { cn } from "@/lib/utils";
 type ViewMode = "list" | "workflow";
 
 function TasksPageContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const quickAddInputRef = useRef<HTMLInputElement>(null);
 
-  const [status, setStatus] = useState<string>(() => searchParams.get("status") || "todo");
+  const [status, setStatus] = useState<string>(
+    () => searchParams.get("status") || "todo",
+  );
   const [viewMode, setViewMode] = useState<ViewMode>(() =>
     searchParams.get("view") === "workflow" ? "workflow" : "list",
   );
-  const [themeId, setThemeId] = useState<string>(() => searchParams.get("themeId") || "all");
-  const [assigneeId, setAssigneeId] = useState<string>(() => searchParams.get("assigneeId") || "all");
-  const [priority, setPriority] = useState<string>(() => searchParams.get("priority") || "all");
-  const [dueFilter, setDueFilter] = useState<string>(() => searchParams.get("due") || "all");
-  const [recurring, setRecurring] = useState<string>(() => searchParams.get("recurring") || "all");
-  const [hasDescription, setHasDescription] = useState<boolean>(() => searchParams.get("hasDesc") === "1");
+  const [themeId, setThemeId] = useState<string>(
+    () => searchParams.get("themeId") || "all",
+  );
+  const [assigneeId, setAssigneeId] = useState<string>(
+    () => searchParams.get("assigneeId") || "all",
+  );
+  const [priority, setPriority] = useState<string>(
+    () => searchParams.get("priority") || "all",
+  );
+  const [dueFilter, setDueFilter] = useState<string>(
+    () => searchParams.get("due") || "all",
+  );
+  const [recurring, setRecurring] = useState<string>(
+    () => searchParams.get("recurring") || "all",
+  );
+  const [hasDescription, setHasDescription] = useState<boolean>(
+    () => searchParams.get("hasDesc") === "1",
+  );
   const [search, setSearch] = useState("");
   const [quickAddTitle, setQuickAddTitle] = useState("");
   const [quickAddAssigneeId, setQuickAddAssigneeId] = useState<string>("none");
@@ -119,7 +148,16 @@ function TasksPageContent() {
     if (window.history.replaceState) {
       window.history.replaceState(null, "", q ? `/tasks?${q}` : "/tasks");
     }
-  }, [status, viewMode, themeId, assigneeId, priority, dueFilter, recurring, hasDescription]);
+  }, [
+    status,
+    viewMode,
+    themeId,
+    assigneeId,
+    priority,
+    dueFilter,
+    recurring,
+    hasDescription,
+  ]);
 
   useEffect(() => {
     if (viewMode !== "workflow" || !selectMode) return;
@@ -161,13 +199,16 @@ function TasksPageContent() {
     isRecurring: recurring === "all" ? undefined : recurring === "yes",
   });
 
-  const countParams = useMemo(() => ({
-    themeId: themeId === "all" ? undefined : themeId,
-    assignedToId: assigneeId === "all" ? undefined : assigneeId,
-    ...dueParams,
-    isRecurring: recurring === "all" ? undefined : recurring === "yes",
-    limit: 1,
-  }), [themeId, assigneeId, dueParams, recurring]);
+  const countParams = useMemo(
+    () => ({
+      themeId: themeId === "all" ? undefined : themeId,
+      assignedToId: assigneeId === "all" ? undefined : assigneeId,
+      ...dueParams,
+      isRecurring: recurring === "all" ? undefined : recurring === "yes",
+      limit: 1,
+    }),
+    [themeId, assigneeId, dueParams, recurring],
+  );
 
   const { data: statsTasksData } = useTasks({
     ...countParams,
@@ -175,7 +216,10 @@ function TasksPageContent() {
   });
   const { data: countsData } = useTasks({ ...countParams });
   const { data: todoCountData } = useTasks({ ...countParams, status: "todo" });
-  const { data: inProgressCountData } = useTasks({ ...countParams, status: "in_progress" });
+  const { data: inProgressCountData } = useTasks({
+    ...countParams,
+    status: "in_progress",
+  });
   const { data: doneCountData } = useTasks({ ...countParams, status: "done" });
 
   const { data: themesData } = useThemes();
@@ -189,12 +233,15 @@ function TasksPageContent() {
   const themes = themesData?.data || [];
   const family = familyData?.data || [];
 
-  const counts = useMemo(() => ({
-    all: countsData?.meta?.total ?? 0,
-    todo: todoCountData?.meta?.total ?? 0,
-    in_progress: inProgressCountData?.meta?.total ?? 0,
-    done: doneCountData?.meta?.total ?? 0,
-  }), [countsData, todoCountData, inProgressCountData, doneCountData]);
+  const counts = useMemo(
+    () => ({
+      all: countsData?.meta?.total ?? 0,
+      todo: todoCountData?.meta?.total ?? 0,
+      in_progress: inProgressCountData?.meta?.total ?? 0,
+      done: doneCountData?.meta?.total ?? 0,
+    }),
+    [countsData, todoCountData, inProgressCountData, doneCountData],
+  );
 
   const stats = useMemo(() => {
     const statsTasks = statsTasksData?.data ?? [];
@@ -213,15 +260,25 @@ function TasksPageContent() {
     });
 
     const done = activeTasks.filter((task) => task.status === "done").length;
-    const inProgress = activeTasks.filter((task) => task.status === "in_progress").length;
-    const open = activeTasks.filter((task) => task.status === "todo" || task.status === "in_progress").length;
-    const completionRate = activeTasks.length > 0 ? Math.round((done / activeTasks.length) * 100) : 0;
+    const inProgress = activeTasks.filter(
+      (task) => task.status === "in_progress",
+    ).length;
+    const open = activeTasks.filter(
+      (task) => task.status === "todo" || task.status === "in_progress",
+    ).length;
+    const completionRate =
+      activeTasks.length > 0
+        ? Math.round((done / activeTasks.length) * 100)
+        : 0;
 
     const averageOverdueDays = overdue.length
       ? Math.round(
           overdue.reduce((sum, task) => {
             if (!task.dueDate) return sum;
-            const days = differenceInCalendarDays(today, new Date(task.dueDate));
+            const days = differenceInCalendarDays(
+              today,
+              new Date(task.dueDate),
+            );
             return sum + Math.max(days, 0);
           }, 0) / overdue.length,
         )
@@ -253,7 +310,11 @@ function TasksPageContent() {
         target?.tagName === "TEXTAREA" ||
         target?.isContentEditable;
 
-      if (!isTyping && (event.key === "/" || (event.key.toLowerCase() === "k" && event.metaKey))) {
+      if (
+        !isTyping &&
+        (event.key === "/" ||
+          (event.key.toLowerCase() === "k" && event.metaKey))
+      ) {
         event.preventDefault();
         searchInputRef.current?.focus();
       }
@@ -278,11 +339,13 @@ function TasksPageContent() {
   let filteredTasks = tasks;
   if (search) {
     filteredTasks = filteredTasks.filter((t) =>
-      t.title.toLowerCase().includes(search.toLowerCase())
+      t.title.toLowerCase().includes(search.toLowerCase()),
     );
   }
   if (priority !== "all") {
-    filteredTasks = filteredTasks.filter((t) => t.priority === parseInt(priority));
+    filteredTasks = filteredTasks.filter(
+      (t) => t.priority === parseInt(priority),
+    );
   }
   if (hasDescription) {
     filteredTasks = filteredTasks.filter((t) => !!t.description?.trim());
@@ -296,7 +359,8 @@ function TasksPageContent() {
         subtitle: "Ready to pick up",
         tasks: filteredTasks.filter((task) => task.status === "todo"),
         badgeVariant: "secondary" as const,
-        laneClass: "bg-[linear-gradient(180deg,hsl(var(--card)/0.94),hsl(var(--secondary)/0.26))]",
+        laneClass:
+          "bg-[linear-gradient(180deg,hsl(var(--card)/0.94),hsl(var(--secondary)/0.26))]",
       },
       {
         id: "in_progress",
@@ -304,7 +368,8 @@ function TasksPageContent() {
         subtitle: "Currently moving",
         tasks: filteredTasks.filter((task) => task.status === "in_progress"),
         badgeVariant: "info" as const,
-        laneClass: "bg-[linear-gradient(180deg,hsl(var(--card)/0.94),hsl(var(--info)/0.18))]",
+        laneClass:
+          "bg-[linear-gradient(180deg,hsl(var(--card)/0.94),hsl(var(--info)/0.18))]",
       },
       {
         id: "done",
@@ -312,7 +377,8 @@ function TasksPageContent() {
         subtitle: "Completed recently",
         tasks: filteredTasks.filter((task) => task.status === "done"),
         badgeVariant: "success" as const,
-        laneClass: "bg-[linear-gradient(180deg,hsl(var(--card)/0.94),hsl(var(--success)/0.16))]",
+        laneClass:
+          "bg-[linear-gradient(180deg,hsl(var(--card)/0.94),hsl(var(--success)/0.16))]",
       },
     ],
     [filteredTasks],
@@ -324,7 +390,8 @@ function TasksPageContent() {
     try {
       await createTask.mutateAsync({
         title,
-        assignedToId: quickAddAssigneeId === "none" ? undefined : quickAddAssigneeId,
+        assignedToId:
+          quickAddAssigneeId === "none" ? undefined : quickAddAssigneeId,
         priority: Number(quickAddPriority),
         dueDate: quickAddDueDate || undefined,
       });
@@ -335,7 +402,13 @@ function TasksPageContent() {
     } catch {
       toast({ title: "Failed to create task", variant: "destructive" });
     }
-  }, [quickAddTitle, quickAddAssigneeId, quickAddPriority, quickAddDueDate, createTask]);
+  }, [
+    quickAddTitle,
+    quickAddAssigneeId,
+    quickAddPriority,
+    quickAddDueDate,
+    createTask,
+  ]);
 
   const applyQuickDuePreset = (preset: "today" | "tomorrow" | "next_week") => {
     const today = new Date();
@@ -347,7 +420,12 @@ function TasksPageContent() {
       setQuickAddDueDate(format(addDays(today, 1), "yyyy-MM-dd"));
       return;
     }
-    setQuickAddDueDate(format(addWeeks(startOfWeek(today, { weekStartsOn: 1 }), 1), "yyyy-MM-dd"));
+    setQuickAddDueDate(
+      format(
+        addWeeks(startOfWeek(today, { weekStartsOn: 1 }), 1),
+        "yyyy-MM-dd",
+      ),
+    );
   };
 
   const handleBulkComplete = async () => {
@@ -356,7 +434,11 @@ function TasksPageContent() {
 
     const results = await Promise.allSettled(
       ids.map((id) =>
-        updateTask.mutateAsync({ id, data: { status: "done" }, invalidate: false }),
+        updateTask.mutateAsync({
+          id,
+          data: { status: "done" },
+          invalidate: false,
+        }),
       ),
     );
 
@@ -437,7 +519,8 @@ function TasksPageContent() {
       if (permission !== "granted") {
         toast({
           title: "Permission not granted",
-          description: "Enable notifications in browser settings to receive task alerts.",
+          description:
+            "Enable notifications in browser settings to receive task alerts.",
           variant: "destructive",
         });
         return;
@@ -450,7 +533,8 @@ function TasksPageContent() {
         setNotificationsReady(true);
         toast({
           title: "Notifications enabled",
-          description: "Browser permission is granted. Push subscription will activate when configured.",
+          description:
+            "Browser permission is granted. Push subscription will activate when configured.",
         });
         return;
       }
@@ -463,7 +547,8 @@ function TasksPageContent() {
       setNotificationsReady(true);
       toast({
         title: "Task notifications enabled",
-        description: "You will now get alerts for assignments and important updates.",
+        description:
+          "You will now get alerts for assignments and important updates.",
       });
     } catch {
       toast({
@@ -504,8 +589,12 @@ function TasksPageContent() {
     setSearch("");
   };
 
-  const activeFiltersCount = [themeId, assigneeId, priority, dueFilter, recurring]
-    .filter((f) => f !== "all").length + (hasDescription ? 1 : 0) + (search.trim() ? 1 : 0);
+  const activeFiltersCount =
+    [themeId, assigneeId, priority, dueFilter, recurring].filter(
+      (f) => f !== "all",
+    ).length +
+    (hasDescription ? 1 : 0) +
+    (search.trim() ? 1 : 0);
   const noTasksWithCurrentFilters = !isLoading && filteredTasks.length === 0;
   const quickTemplates = [
     "Take out trash",
@@ -514,266 +603,424 @@ function TasksPageContent() {
     "Kitchen reset",
     "Pay utility bill",
   ];
+  const headerStats = [
+    {
+      label: "Open",
+      value: stats.open,
+      icon: Rocket,
+      tone: "text-primary",
+      description: `${stats.inProgress} in progress`,
+    },
+    {
+      label: "Due today",
+      value: stats.dueTodayCount,
+      icon: Clock3,
+      tone: "text-info",
+      description: stats.dueTodayCount > 0 ? "Time to focus" : "You are clear",
+    },
+    {
+      label: "Overdue",
+      value: stats.overdueCount,
+      icon: AlertTriangle,
+      tone: "text-destructive",
+      description:
+        stats.overdueCount > 0
+          ? `Avg ${stats.averageOverdueDays} day${stats.averageOverdueDays === 1 ? "" : "s"} late`
+          : "No overdue tasks",
+    },
+    {
+      label: "Done this week",
+      value: stats.doneThisWeek,
+      icon: Sparkles,
+      tone: "text-success",
+      description: `${stats.completionRate}% completion rate`,
+    },
+  ];
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="relative space-y-3 pb-6">
-        {/* ── Row 1: Title + inline stats ── */}
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <h1 className="text-2xl font-semibold tracking-[-0.02em]">Tasks</h1>
+      <div className="relative space-y-4 pb-4 md:pb-6">
+        <section className="tasks-hero-panel rounded-[1.55rem] p-4 md:rounded-[1.9rem] md:p-6">
+          <div className="flex flex-col gap-4 md:gap-5">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+              <div className="space-y-2">
+                <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                  Household Workflow
+                </p>
+                <div className="space-y-1.5">
+                  <h1 className="text-2xl md:text-4xl">Tasks</h1>
+                  <p className="max-w-2xl text-sm text-muted-foreground">
+                    Keep the household moving with a compact view of what is
+                    ready, urgent, and done.
+                  </p>
+                </div>
+              </div>
+              <div className="flex min-w-0 flex-col gap-2.5 rounded-[1.2rem] border border-border/75 bg-[linear-gradient(180deg,hsl(var(--card)/0.94),hsl(var(--card)/0.82))] px-3.5 py-3 shadow-[inset_0_1px_0_hsl(var(--background)/0.92)] md:min-w-[280px] md:rounded-[1.5rem] md:px-4 md:py-4">
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="font-semibold">Completion</span>
+                  <span className="text-muted-foreground">
+                    {stats.completionRate}% this view
+                  </span>
+                </div>
+                <Progress value={stats.completionRate} className="h-2.5" />
+                <p className="text-xs text-muted-foreground">
+                  {stats.doneThisWeek} tasks wrapped up this week.
+                </p>
+              </div>
+            </div>
 
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="flex items-center gap-1">
-                  <Rocket className="h-3.5 w-3.5 text-primary" />
-                  <span className="font-semibold text-foreground">{stats.open}</span> open
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>{stats.inProgress} in progress</TooltipContent>
-            </Tooltip>
-            <span className="text-border">·</span>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="flex items-center gap-1">
-                  <Clock3 className="h-3.5 w-3.5 text-info" />
-                  <span className="font-semibold text-foreground">{stats.dueTodayCount}</span> due today
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>{stats.dueTodayCount > 0 ? "Time to focus" : "You're clear"}</TooltipContent>
-            </Tooltip>
-            <span className="text-border">·</span>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className={cn("flex items-center gap-1", stats.overdueCount > 0 && "text-destructive")}>
-                  <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
-                  <span className="font-semibold text-foreground">{stats.overdueCount}</span> overdue
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>
-                {stats.overdueCount > 0
-                  ? `Avg ${stats.averageOverdueDays} day${stats.averageOverdueDays === 1 ? "" : "s"} late`
-                  : "No overdue tasks"}
-              </TooltipContent>
-            </Tooltip>
-            <span className="text-border">·</span>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="flex items-center gap-1">
-                  <Sparkles className="h-3.5 w-3.5 text-success" />
-                  <span className="font-semibold text-foreground">{stats.doneThisWeek}</span> done this week
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>{stats.completionRate}% completion rate</TooltipContent>
-            </Tooltip>
-            <span className="hidden text-border sm:inline">·</span>
-            <div className="hidden items-center gap-2 sm:flex">
-              <Progress value={stats.completionRate} className="h-1.5 w-16" />
-              <span className="text-[11px] font-medium">{stats.completionRate}%</span>
+            <div className="grid grid-cols-2 gap-2.5 md:gap-3 xl:grid-cols-4">
+              {headerStats.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Tooltip key={item.label}>
+                    <TooltipTrigger asChild>
+                      <div className="rounded-[1.15rem] border border-border/75 bg-[linear-gradient(180deg,hsl(var(--card)/0.94),hsl(var(--card)/0.82))] px-3 py-2.5 shadow-[inset_0_1px_0_hsl(var(--background)/0.9)] md:rounded-[1.4rem] md:px-4 md:py-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                              {item.label}
+                            </p>
+                            <p className="mt-1.5 text-xl font-semibold tracking-[-0.03em] md:mt-2 md:text-2xl">
+                              {item.value}
+                            </p>
+                          </div>
+                          <span
+                            className={cn(
+                              "flex h-9 w-9 items-center justify-center rounded-xl bg-background/80 md:h-11 md:w-11 md:rounded-2xl",
+                              item.tone,
+                            )}
+                          >
+                            <Icon className="h-4 w-4 md:h-5 md:w-5" />
+                          </span>
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>{item.description}</TooltipContent>
+                  </Tooltip>
+                );
+              })}
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* ── Row 2: Search + Filters + Actions ── */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-0 flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              ref={searchInputRef}
-              placeholder="Search tasks…  ( / )"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-9 border-border/70 bg-background/70 pl-9 text-sm"
-            />
-          </div>
-
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 gap-1.5">
-                <SlidersHorizontal className="h-3.5 w-3.5" />
-                Filters
-                {activeFiltersCount > 0 && (
-                  <Badge variant="secondary" className="ml-0.5 px-1.5 text-[10px]">
-                    {activeFiltersCount}
-                  </Badge>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80 space-y-3" align="end">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Filters</span>
-                {activeFiltersCount > 0 && (
-                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={clearAllFilters}>
-                    Reset all
-                  </Button>
-                )}
+        <section className="tasks-panel rounded-[1.45rem] p-3.5 md:rounded-[1.75rem] md:p-5">
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative min-w-0 basis-full sm:flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  ref={searchInputRef}
+                  placeholder="Search tasks…  ( / )"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="h-11 border-border/70 bg-background/70 pl-9 text-sm"
+                />
               </div>
 
-              <div className="space-y-2">
-                <Select value={themeId} onValueChange={setThemeId}>
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Theme" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All themes</SelectItem>
-                    {themes.map((theme) => (
-                      <SelectItem key={theme.id} value={theme.id}>{theme.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-10 gap-1.5 md:h-11"
+                  >
+                    <SlidersHorizontal className="h-3.5 w-3.5" />
+                    Filters
+                    {activeFiltersCount > 0 && (
+                      <Badge
+                        variant="secondary"
+                        className="ml-0.5 px-1.5 text-[10px]"
+                      >
+                        {activeFiltersCount}
+                      </Badge>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 space-y-3" align="end">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Filters</span>
+                    {activeFiltersCount > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={clearAllFilters}
+                      >
+                        Reset all
+                      </Button>
+                    )}
+                  </div>
 
-                <Select value={assigneeId} onValueChange={setAssigneeId}>
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Assignee" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All assignees</SelectItem>
-                    {family.map((member) => (
-                      <SelectItem key={member.id} value={member.id}>{member.firstName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <div className="space-y-2">
+                    <Select value={themeId} onValueChange={setThemeId}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Theme" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All themes</SelectItem>
+                        {themes.map((theme) => (
+                          <SelectItem key={theme.id} value={theme.id}>
+                            {theme.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
 
-                <Select value={priority} onValueChange={setPriority}>
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Priority" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All priorities</SelectItem>
-                    <SelectItem value="0">Normal</SelectItem>
-                    <SelectItem value="1">High</SelectItem>
-                    <SelectItem value="2">Urgent</SelectItem>
-                  </SelectContent>
-                </Select>
+                    <Select value={assigneeId} onValueChange={setAssigneeId}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Assignee" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All assignees</SelectItem>
+                        {family.map((member) => (
+                          <SelectItem key={member.id} value={member.id}>
+                            {member.firstName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
 
-                <Select value={dueFilter} onValueChange={setDueFilter}>
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Due date" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Any date</SelectItem>
-                    <SelectItem value="overdue">Overdue</SelectItem>
-                    <SelectItem value="today">Today</SelectItem>
-                    <SelectItem value="week">This week</SelectItem>
-                  </SelectContent>
-                </Select>
+                    <Select value={priority} onValueChange={setPriority}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Priority" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All priorities</SelectItem>
+                        <SelectItem value="0">Normal</SelectItem>
+                        <SelectItem value="1">High</SelectItem>
+                        <SelectItem value="2">Urgent</SelectItem>
+                      </SelectContent>
+                    </Select>
 
-                <Select value={recurring} onValueChange={setRecurring}>
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Recurring" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="yes">Recurring</SelectItem>
-                    <SelectItem value="no">One-time</SelectItem>
-                  </SelectContent>
-                </Select>
+                    <Select value={dueFilter} onValueChange={setDueFilter}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Due date" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Any date</SelectItem>
+                        <SelectItem value="overdue">Overdue</SelectItem>
+                        <SelectItem value="today">Today</SelectItem>
+                        <SelectItem value="week">This week</SelectItem>
+                      </SelectContent>
+                    </Select>
 
+                    <Select value={recurring} onValueChange={setRecurring}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Recurring" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="yes">Recurring</SelectItem>
+                        <SelectItem value="no">One-time</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Button
+                      variant={hasDescription ? "default" : "outline"}
+                      size="sm"
+                      className="h-8 w-full text-xs"
+                      onClick={() => setHasDescription(!hasDescription)}
+                    >
+                      Has description
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              <Button
+                size="sm"
+                className="h-10 gap-1.5 md:h-11"
+                onClick={() => setQuickCaptureOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">New Task</span>
+                <kbd className="ml-1 hidden rounded bg-primary-foreground/20 px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground/70 sm:inline">
+                  N
+                </kbd>
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-10 px-3 md:h-11"
+                onClick={() => setSelectMode(!selectMode)}
+                disabled={viewMode === "workflow"}
+              >
+                <CheckSquare className="mr-1.5 h-3.5 w-3.5" />
+                <span className="hidden sm:inline">
+                  {selectMode ? "Exit" : "Select"}
+                </span>
+              </Button>
+
+              {notificationsReady ? (
                 <Button
-                  variant={hasDescription ? "default" : "outline"}
+                  variant="ghost"
                   size="sm"
-                  className="h-8 w-full text-xs"
-                  onClick={() => setHasDescription(!hasDescription)}
+                  className="h-10 px-3 md:h-11"
+                  onClick={handleSendTestNotification}
+                  disabled={testNotificationLoading}
+                >
+                  <Bell className="h-3.5 w-3.5" />
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-10 px-3 md:h-11"
+                  onClick={handleEnableNotifications}
+                  disabled={notificationLoading}
+                >
+                  <Bell className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Badge
+                variant="outline"
+                className="h-8 rounded-full px-3 text-[11px] font-semibold uppercase tracking-[0.14em]"
+              >
+                {filteredTasks.length} visible
+              </Badge>
+              {search.trim() && (
+                <Badge
+                  variant="outline"
+                  className="h-8 rounded-full px-3 text-xs"
+                >
+                  Search: {search.trim()}
+                </Badge>
+              )}
+              {themeId !== "all" && (
+                <Badge
+                  variant="outline"
+                  className="h-8 rounded-full px-3 text-xs"
+                >
+                  Theme filtered
+                </Badge>
+              )}
+              {assigneeId !== "all" && (
+                <Badge
+                  variant="outline"
+                  className="h-8 rounded-full px-3 text-xs"
+                >
+                  Assigned
+                </Badge>
+              )}
+              {priority !== "all" && (
+                <Badge
+                  variant="outline"
+                  className="h-8 rounded-full px-3 text-xs"
+                >
+                  Priority set
+                </Badge>
+              )}
+              {dueFilter !== "all" && (
+                <Badge
+                  variant="outline"
+                  className="h-8 rounded-full px-3 text-xs"
+                >
+                  Due window
+                </Badge>
+              )}
+              {recurring !== "all" && (
+                <Badge
+                  variant="outline"
+                  className="h-8 rounded-full px-3 text-xs"
+                >
+                  {recurring === "yes" ? "Recurring" : "One-time"}
+                </Badge>
+              )}
+              {hasDescription && (
+                <Badge
+                  variant="outline"
+                  className="h-8 rounded-full px-3 text-xs"
                 >
                   Has description
+                </Badge>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {viewMode === "list" ? (
+                <Tabs value={status} onValueChange={setStatus}>
+                  <TabsList className="h-10 rounded-2xl border border-border/70 bg-card/70 p-1 shadow-[inset_0_1px_0_hsl(var(--background)/0.8)]">
+                    <TabsTrigger
+                      className="rounded-xl px-2.5 text-xs"
+                      value="all"
+                    >
+                      All
+                      {counts.all > 0 && (
+                        <Badge variant="secondary" className="ml-1 scale-90">
+                          {counts.all}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger
+                      className="rounded-xl px-2.5 text-xs"
+                      value="todo"
+                    >
+                      To Do
+                      {counts.todo > 0 && (
+                        <Badge variant="secondary" className="ml-1 scale-90">
+                          {counts.todo}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger
+                      className="rounded-xl px-2.5 text-xs"
+                      value="in_progress"
+                    >
+                      Active
+                      {counts.in_progress > 0 && (
+                        <Badge variant="info" className="ml-1 scale-90">
+                          {counts.in_progress}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger
+                      className="rounded-xl px-2.5 text-xs"
+                      value="done"
+                    >
+                      Done
+                      {counts.done > 0 && (
+                        <Badge variant="success" className="ml-1 scale-90">
+                          {counts.done}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              ) : (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Columns3 className="h-3.5 w-3.5" />
+                  Workflow view with grouped momentum lanes
+                </div>
+              )}
+
+              <div className="flex items-center rounded-2xl border border-border/70 bg-card/70 p-1 shadow-[inset_0_1px_0_hsl(var(--background)/0.84)]">
+                <Button
+                  variant={viewMode === "list" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="h-8 rounded-xl px-3 text-xs"
+                  onClick={() => setViewMode("list")}
+                >
+                  <LayoutList className="mr-1 h-3.5 w-3.5" />
+                  List
+                </Button>
+                <Button
+                  variant={viewMode === "workflow" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="h-8 rounded-xl px-3 text-xs"
+                  onClick={() => setViewMode("workflow")}
+                >
+                  <Columns3 className="mr-1 h-3.5 w-3.5" />
+                  Board
                 </Button>
               </div>
-            </PopoverContent>
-          </Popover>
-
-          <Button
-            size="sm"
-            className="h-9 gap-1.5"
-            onClick={() => setQuickCaptureOpen(true)}
-          >
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">New Task</span>
-            <kbd className="ml-1 hidden rounded bg-primary-foreground/20 px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground/70 sm:inline">
-              N
-            </kbd>
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-9"
-            onClick={() => setSelectMode(!selectMode)}
-            disabled={viewMode === "workflow"}
-          >
-            <CheckSquare className="mr-1.5 h-3.5 w-3.5" />
-            {selectMode ? "Exit" : "Select"}
-          </Button>
-
-          {notificationsReady ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-9"
-              onClick={handleSendTestNotification}
-              disabled={testNotificationLoading}
-            >
-              <Bell className="h-3.5 w-3.5" />
-            </Button>
-          ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-9"
-              onClick={handleEnableNotifications}
-              disabled={notificationLoading}
-            >
-              <Bell className="h-3.5 w-3.5" />
-            </Button>
-          )}
-        </div>
-
-        {/* ── Row 3: Status tabs + View toggle ── */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          {viewMode === "list" ? (
-            <Tabs value={status} onValueChange={setStatus}>
-              <TabsList className="h-9 rounded-xl border border-border/70 bg-card/70 p-0.5 shadow-[inset_0_1px_0_hsl(var(--background)/0.8)]">
-                <TabsTrigger className="rounded-lg px-2.5 text-xs" value="all">
-                  All{counts.all > 0 && <Badge variant="secondary" className="ml-1 scale-90">{counts.all}</Badge>}
-                </TabsTrigger>
-                <TabsTrigger className="rounded-lg px-2.5 text-xs" value="todo">
-                  To Do{counts.todo > 0 && <Badge variant="secondary" className="ml-1 scale-90">{counts.todo}</Badge>}
-                </TabsTrigger>
-                <TabsTrigger className="rounded-lg px-2.5 text-xs" value="in_progress">
-                  Active{counts.in_progress > 0 && <Badge variant="info" className="ml-1 scale-90">{counts.in_progress}</Badge>}
-                </TabsTrigger>
-                <TabsTrigger className="rounded-lg px-2.5 text-xs" value="done">
-                  Done{counts.done > 0 && <Badge variant="success" className="ml-1 scale-90">{counts.done}</Badge>}
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          ) : (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Columns3 className="h-3.5 w-3.5" />
-              Workflow view — tasks grouped by status
             </div>
-          )}
-
-          <div className="flex items-center rounded-lg border border-border/70 p-0.5">
-            <Button
-              variant={viewMode === "list" ? "secondary" : "ghost"}
-              size="sm"
-              className="h-7 rounded-md px-2 text-xs"
-              onClick={() => setViewMode("list")}
-            >
-              <LayoutList className="mr-1 h-3.5 w-3.5" />
-              List
-            </Button>
-            <Button
-              variant={viewMode === "workflow" ? "secondary" : "ghost"}
-              size="sm"
-              className="h-7 rounded-md px-2 text-xs"
-              onClick={() => setViewMode("workflow")}
-            >
-              <Columns3 className="mr-1 h-3.5 w-3.5" />
-              Board
-            </Button>
           </div>
-        </div>
+        </section>
 
         {/* ── Task list / Workflow grid ── */}
         {isLoading ? (
@@ -788,24 +1035,41 @@ function TasksPageContent() {
               <TaskList
                 tasks={filteredTasks}
                 assignees={family}
-                emptyMessage={search || activeFiltersCount > 0 ? "No tasks match your filters" : "No tasks found"}
+                emptyMessage={
+                  search || activeFiltersCount > 0
+                    ? "No tasks match your filters"
+                    : "No tasks found"
+                }
                 selectable={selectMode}
                 selectedIds={selectedIds}
                 onSelectionChange={setSelectedIds}
                 listHref={`/tasks`}
                 bulkToolbar={
                   selectMode && selectedIds.size > 0 ? (
-                    <div className="mb-2 flex items-center gap-2 rounded-lg border bg-muted/50 px-4 py-2">
-                      <span className="text-sm font-medium">{selectedIds.size} selected</span>
+                    <div className="mb-3 flex flex-wrap items-center gap-2 rounded-[1.25rem] border border-border/70 bg-[linear-gradient(180deg,hsl(var(--card)/0.96),hsl(var(--card)/0.84))] px-4 py-3 shadow-[inset_0_1px_0_hsl(var(--background)/0.9)]">
+                      <span className="text-sm font-medium">
+                        {selectedIds.size} selected
+                      </span>
                       <Button size="sm" onClick={handleBulkComplete}>
                         <CheckSquare className="mr-2 h-4 w-4" />
                         Complete
                       </Button>
-                      <Button size="sm" variant="destructive" onClick={handleBulkDelete}>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={handleBulkDelete}
+                      >
                         <Trash2 className="mr-2 h-4 w-4" />
                         Delete
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => { setSelectedIds(new Set()); setSelectMode(false); }}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setSelectedIds(new Set());
+                          setSelectMode(false);
+                        }}
+                      >
                         <X className="mr-2 h-4 w-4" />
                         Cancel
                       </Button>
@@ -816,16 +1080,28 @@ function TasksPageContent() {
             ) : (
               <div className="grid gap-4 xl:grid-cols-3">
                 {workflowColumns.map((column) => (
-                  <section key={column.id} className={cn("tasks-lane-panel rounded-2xl p-3", column.laneClass)}>
+                  <section
+                    key={column.id}
+                    className={cn(
+                      "tasks-lane-panel rounded-2xl p-3",
+                      column.laneClass,
+                    )}
+                  >
                     <div className="mb-3 flex items-center justify-between">
                       <div>
-                        <h3 className="text-sm font-semibold">{column.title}</h3>
-                        <p className="text-xs text-muted-foreground">{column.subtitle}</p>
+                        <h3 className="text-sm font-semibold">
+                          {column.title}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          {column.subtitle}
+                        </p>
                       </div>
-                      <Badge variant={column.badgeVariant}>{column.tasks.length}</Badge>
+                      <Badge variant={column.badgeVariant}>
+                        {column.tasks.length}
+                      </Badge>
                     </div>
                     {column.tasks.length === 0 ? (
-                      <div className="rounded-lg border border-dashed p-6 text-center text-xs text-muted-foreground">
+                      <div className="rounded-xl border border-dashed border-border/70 bg-background/55 p-6 text-center text-xs text-muted-foreground">
                         Nothing here right now.
                       </div>
                     ) : (
@@ -848,7 +1124,9 @@ function TasksPageContent() {
             {viewMode === "workflow" && noTasksWithCurrentFilters && (
               <div className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">
                 <p className="font-medium text-foreground">No matching tasks</p>
-                <p className="mt-1">Adjust filters or create a fresh task to keep momentum.</p>
+                <p className="mt-1">
+                  Adjust filters or create a fresh task to keep momentum.
+                </p>
               </div>
             )}
           </>
@@ -859,7 +1137,9 @@ function TasksPageContent() {
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Quick capture</DialogTitle>
-              <DialogDescription>Add a task with smart defaults. Press Enter to save.</DialogDescription>
+              <DialogDescription>
+                Add a task with smart defaults. Press Enter to save.
+              </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-3">
@@ -900,13 +1180,28 @@ function TasksPageContent() {
 
               <div className="space-y-2 rounded-lg border border-border/60 bg-muted/30 p-3">
                 <div className="flex flex-wrap gap-1.5">
-                  <Button type="button" variant="outline" size="xs" onClick={() => applyQuickDuePreset("today")}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="xs"
+                    onClick={() => applyQuickDuePreset("today")}
+                  >
                     Today
                   </Button>
-                  <Button type="button" variant="outline" size="xs" onClick={() => applyQuickDuePreset("tomorrow")}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="xs"
+                    onClick={() => applyQuickDuePreset("tomorrow")}
+                  >
                     Tomorrow
                   </Button>
-                  <Button type="button" variant="outline" size="xs" onClick={() => applyQuickDuePreset("next_week")}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="xs"
+                    onClick={() => applyQuickDuePreset("next_week")}
+                  >
                     Next week
                   </Button>
                   <Input
@@ -917,7 +1212,10 @@ function TasksPageContent() {
                   />
                 </div>
                 <div className="flex gap-2">
-                  <Select value={quickAddAssigneeId} onValueChange={setQuickAddAssigneeId}>
+                  <Select
+                    value={quickAddAssigneeId}
+                    onValueChange={setQuickAddAssigneeId}
+                  >
                     <SelectTrigger className="h-8 flex-1 text-xs">
                       <SelectValue placeholder="Assign to" />
                     </SelectTrigger>
@@ -930,7 +1228,10 @@ function TasksPageContent() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Select value={quickAddPriority} onValueChange={setQuickAddPriority}>
+                  <Select
+                    value={quickAddPriority}
+                    onValueChange={setQuickAddPriority}
+                  >
                     <SelectTrigger className="h-8 w-[120px] text-xs">
                       <SelectValue placeholder="Priority" />
                     </SelectTrigger>
@@ -952,22 +1253,27 @@ function TasksPageContent() {
 
 export default function TasksPage() {
   return (
-    <Suspense fallback={
-      <div className="space-y-3">
-        <div className="h-8 w-48 animate-pulse rounded bg-muted" />
-        <div className="h-9 w-full animate-pulse rounded bg-muted" />
-        <div className="flex gap-2">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-9 w-24 animate-pulse rounded bg-muted" />
-          ))}
+    <Suspense
+      fallback={
+        <div className="space-y-3">
+          <div className="h-8 w-48 animate-pulse rounded bg-muted" />
+          <div className="h-9 w-full animate-pulse rounded bg-muted" />
+          <div className="flex gap-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="h-9 w-24 animate-pulse rounded bg-muted"
+              />
+            ))}
+          </div>
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-20 animate-pulse rounded-md bg-muted" />
+            ))}
+          </div>
         </div>
-        <div className="space-y-2">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 animate-pulse rounded-md bg-muted" />
-          ))}
-        </div>
-      </div>
-    }>
+      }
+    >
       <TasksPageContent />
     </Suspense>
   );

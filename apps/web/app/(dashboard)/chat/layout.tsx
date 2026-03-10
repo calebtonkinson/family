@@ -22,7 +22,27 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useConversation } from "@/hooks/use-conversations";
 import { apiClient } from "@/lib/api-client";
-import { MoreHorizontal, Trash2 } from "lucide-react";
+import { MoreHorizontal, Plus, Trash2 } from "lucide-react";
+
+function formatConversationMeta(updatedAt?: string, messageCount?: number) {
+  const details: string[] = [];
+
+  if (typeof messageCount === "number") {
+    details.push(`${messageCount} ${messageCount === 1 ? "message" : "messages"}`);
+  }
+
+  if (updatedAt) {
+    const date = new Date(updatedAt);
+    details.push(
+      `updated ${date.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      })}`,
+    );
+  }
+
+  return details.join(" · ");
+}
 
 export default function ChatLayout({
   children,
@@ -47,6 +67,12 @@ export default function ChatLayout({
   const title = isConversationRoute
     ? conversationData?.data?.title?.trim() || "Chat"
     : "New Chat";
+  const subtitle = isConversationRoute
+    ? formatConversationMeta(
+        conversationData?.data?.updatedAt,
+        conversationData?.data?.messageCount,
+      )
+    : "Plan, ask, and research in one place";
 
   const handleDeleteConversation = async () => {
     if (!conversationId) return;
@@ -69,7 +95,21 @@ export default function ChatLayout({
         onMobileOpenChange={setMobileSidebarOpen}
       />
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <ChatTopBar title={title} onOpenSidebar={() => setMobileSidebarOpen(true)}>
+        <ChatTopBar
+          title={title}
+          subtitle={subtitle}
+          onOpenSidebar={() => setMobileSidebarOpen(true)}
+        >
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => router.push("/chat")}
+            className="gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">New chat</span>
+          </Button>
           {isConversationRoute && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

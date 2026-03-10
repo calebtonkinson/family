@@ -13,7 +13,9 @@ const dateStringSchema = z.string().refine(
     }
     return false;
   },
-  { message: "Invalid date format. Expected YYYY-MM-DD or ISO datetime string" }
+  {
+    message: "Invalid date format. Expected YYYY-MM-DD or ISO datetime string",
+  },
 );
 
 const dateOnlyStringSchema = z
@@ -90,17 +92,31 @@ export const ingredientSchema = z.object({
   qualifiers: z.string().max(200).optional(),
 });
 
-export const recipeSourceSchema = z.enum([
-  "photo",
-  "link",
-  "manual",
-  "family",
-]);
+export const recipeSourceSchema = z.enum(["photo", "link", "manual", "family"]);
 
 export const recipeAttachmentSchema = z.object({
   url: z.string().min(1),
   mediaType: z.string().min(1).max(255),
   filename: z.string().min(1).max(500).optional(),
+});
+
+export const importRecipeFromFilesSchema = z.object({
+  files: z
+    .array(
+      z.object({
+        url: z.string().min(1),
+        mediaType: z.string().min(1),
+        filename: z.string().min(1).max(500).optional(),
+      }),
+    )
+    .min(1)
+    .max(10),
+  prompt: z.string().trim().min(1).max(2000).optional(),
+});
+
+export const importRecipeFromUrlSchema = z.object({
+  url: z.string().url(),
+  prompt: z.string().trim().min(1).max(2000).optional(),
 });
 
 export const createRecipeSchema = z.object({
@@ -183,11 +199,9 @@ export const createListItemSchema = z.object({
   content: z.string().min(1).max(1000),
 });
 
-export const updateListItemSchema = createListItemSchema
-  .partial()
-  .extend({
-    markedOff: z.boolean().optional(),
-  });
+export const updateListItemSchema = createListItemSchema.partial().extend({
+  markedOff: z.boolean().optional(),
+});
 
 export const listIdItemIdParamSchema = z.object({
   id: z.string().uuid(),
@@ -222,7 +236,10 @@ export const updateProjectSchema = z.object({
 export const createThemeSchema = z.object({
   name: z.string().min(1).max(100),
   icon: z.string().max(50).optional(),
-  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .optional(),
   sortOrder: z.number().int().optional(),
 });
 
@@ -240,7 +257,10 @@ export const createFamilyMemberSchema = z.object({
   firstName: z.string().min(1).max(100),
   lastName: z.string().max(100).optional(),
   nickname: z.string().max(100).optional(),
-  birthday: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  birthday: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   gender: genderSchema.optional(),
   avatarUrl: z.string().url().optional(),
   profileData: z.record(z.unknown()).optional(),
@@ -329,15 +349,17 @@ export const researchFindingSchema = z.object({
   claim: z.string(),
   confidence: z.number().min(0).max(1),
   supportingSourceIds: z.array(z.string().uuid()),
-  evidence: z.array(
-    z.object({
-      sourceId: z.string().uuid(),
-      excerpt: z.string().nullable(),
-      relevanceScore: z.number().min(0).max(1),
-      url: z.string().min(1),
-      title: z.string().nullable(),
-    }),
-  ).default([]),
+  evidence: z
+    .array(
+      z.object({
+        sourceId: z.string().uuid(),
+        excerpt: z.string().nullable(),
+        relevanceScore: z.number().min(0).max(1),
+        url: z.string().min(1),
+        title: z.string().nullable(),
+      }),
+    )
+    .default([]),
   status: z.enum(["partial", "sufficient", "conflicted", "unknown"]),
   notes: z.string().nullable(),
   createdAt: z.string(),
@@ -360,25 +382,29 @@ export const presentationComparisonTableBlockSchema = z.object({
   type: z.literal("comparison_table"),
   caption: z.string().optional(),
   columns: z.array(z.string().min(1)).min(2),
-  rows: z.array(
-    z.object({
-      label: z.string().min(1),
-      values: z.array(z.string()),
-    }),
-  ).min(1),
+  rows: z
+    .array(
+      z.object({
+        label: z.string().min(1),
+        values: z.array(z.string()),
+      }),
+    )
+    .min(1),
 });
 
 export const presentationRankedListBlockSchema = z.object({
   type: z.literal("ranked_list"),
   title: z.string().optional(),
-  items: z.array(
-    z.object({
-      title: z.string().min(1),
-      subtitle: z.string().optional(),
-      detail: z.string().optional(),
-      url: z.string().optional(),
-    }),
-  ).min(1),
+  items: z
+    .array(
+      z.object({
+        title: z.string().min(1),
+        subtitle: z.string().optional(),
+        detail: z.string().optional(),
+        url: z.string().optional(),
+      }),
+    )
+    .min(1),
 });
 
 export const presentationSourcesBlockSchema = z.object({
@@ -400,12 +426,14 @@ export const presentationCalloutBlockSchema = z.object({
 export const presentationActionItemsBlockSchema = z.object({
   type: z.literal("action_items"),
   title: z.string().optional(),
-  items: z.array(
-    z.object({
-      text: z.string().min(1),
-      detail: z.string().optional(),
-    }),
-  ).min(1),
+  items: z
+    .array(
+      z.object({
+        text: z.string().min(1),
+        detail: z.string().optional(),
+      }),
+    )
+    .min(1),
 });
 
 export const presentationBlockSchema = z.discriminatedUnion("type", [
@@ -434,7 +462,14 @@ export const researchReportSchema = z.object({
 export const researchRunResponseSchema = z.object({
   runId: z.string().uuid(),
   conversationId: z.string().uuid(),
-  status: z.enum(["planning", "running", "completed", "completed_with_warnings", "failed", "canceled"]),
+  status: z.enum([
+    "planning",
+    "running",
+    "completed",
+    "completed_with_warnings",
+    "failed",
+    "canceled",
+  ]),
   query: z.string(),
   effort: researchEffortSchema,
   recencyDays: z.number().int().nullable(),
@@ -468,23 +503,25 @@ export const researchStatusResponseSchema = z.object({
   events: z.array(researchRunEventSchema).default([]),
 });
 
-export const createResearchTasksSchema = z.object({
-  findingIds: z.array(z.string().uuid()).default([]),
-  actionItems: z
-    .array(
-      z.object({
-        title: z.string().min(1).max(500),
-        description: z.string().max(5000).optional(),
-        dueDate: dateStringSchema.optional(),
-        assignedToId: z.string().uuid().optional(),
-        priority: prioritySchema.optional(),
-      }),
-    )
-    .default([]),
-}).refine(
-  (value) => value.findingIds.length > 0 || value.actionItems.length > 0,
-  { message: "At least one finding or action item must be selected" },
-);
+export const createResearchTasksSchema = z
+  .object({
+    findingIds: z.array(z.string().uuid()).default([]),
+    actionItems: z
+      .array(
+        z.object({
+          title: z.string().min(1).max(500),
+          description: z.string().max(5000).optional(),
+          dueDate: dateStringSchema.optional(),
+          assignedToId: z.string().uuid().optional(),
+          priority: prioritySchema.optional(),
+        }),
+      )
+      .default([]),
+  })
+  .refine(
+    (value) => value.findingIds.length > 0 || value.actionItems.length > 0,
+    { message: "At least one finding or action item must be selected" },
+  );
 
 // Push subscription schemas
 export const pushSubscriptionSchema = z.object({
@@ -525,11 +562,21 @@ export type CreateRecipeInput = z.infer<typeof createRecipeSchema>;
 export type UpdateRecipeInput = z.infer<typeof updateRecipeSchema>;
 export type RecipeFilter = z.infer<typeof recipeFilterSchema>;
 export type RecipeSource = z.infer<typeof recipeSourceSchema>;
+export type ImportRecipeFromFilesInput = z.infer<
+  typeof importRecipeFromFilesSchema
+>;
+export type ImportRecipeFromUrlInput = z.infer<
+  typeof importRecipeFromUrlSchema
+>;
 export type MealSlot = z.infer<typeof mealSlotSchema>;
-export type MealPlanExternalLinkInput = z.infer<typeof mealPlanExternalLinkSchema>;
+export type MealPlanExternalLinkInput = z.infer<
+  typeof mealPlanExternalLinkSchema
+>;
 export type MealPlanEntryInput = z.infer<typeof mealPlanEntrySchema>;
 export type UpdateMealPlanInput = z.infer<typeof updateMealPlanSchema>;
-export type BulkUpsertMealPlansInput = z.infer<typeof bulkUpsertMealPlansSchema>;
+export type BulkUpsertMealPlansInput = z.infer<
+  typeof bulkUpsertMealPlansSchema
+>;
 export type MealPlanFilter = z.infer<typeof mealPlanFilterSchema>;
 export type UpdateMealPlanningPreferencesInput = z.infer<
   typeof updateMealPlanningPreferencesSchema
@@ -562,13 +609,19 @@ export type ResearchEffort = z.infer<typeof researchEffortSchema>;
 export type ResearchPlan = z.infer<typeof researchPlanSchema>;
 export type ResearchBudget = z.infer<typeof researchBudgetSchema>;
 export type CreateResearchPlanInput = z.infer<typeof createResearchPlanSchema>;
-export type CreateResearchPlanResponse = z.infer<typeof createResearchPlanResponseSchema>;
+export type CreateResearchPlanResponse = z.infer<
+  typeof createResearchPlanResponseSchema
+>;
 export type ResearchPlannerStatus = z.infer<typeof researchPlannerStatusSchema>;
 export type RunResearchInput = z.infer<typeof runResearchSchema>;
 export type ResearchRunResponse = z.infer<typeof researchRunResponseSchema>;
 export type ResearchRunEvent = z.infer<typeof researchRunEventSchema>;
-export type ResearchStatusResponse = z.infer<typeof researchStatusResponseSchema>;
-export type CreateResearchTasksInput = z.infer<typeof createResearchTasksSchema>;
+export type ResearchStatusResponse = z.infer<
+  typeof researchStatusResponseSchema
+>;
+export type CreateResearchTasksInput = z.infer<
+  typeof createResearchTasksSchema
+>;
 
 export type PushSubscriptionInput = z.infer<typeof pushSubscriptionSchema>;
 

@@ -60,11 +60,10 @@ export function BottomNav({ className }: BottomNavProps) {
   return (
     <nav
       className={cn(
-        "fixed bottom-0 left-0 right-0 z-50 border-t border-border",
-        "bg-background pb-[env(safe-area-inset-bottom)]",
+        "fixed bottom-0 left-0 right-0 z-50 border-t border-border/80",
+        "bg-[linear-gradient(180deg,hsl(var(--card)/0.92),hsl(var(--card)/0.98))] pb-[env(safe-area-inset-bottom)] backdrop-blur-xl",
         className,
       )}
-      style={{ backgroundColor: "hsl(var(--background))" }}
     >
       <div className="grid h-16 grid-cols-5 items-center">
         {primaryNavItems.slice(0, 2).map((item) => {
@@ -80,11 +79,18 @@ export function BottomNav({ className }: BottomNavProps) {
               className={cn(
                 "flex flex-col items-center gap-1 px-2 py-2 text-xs transition-colors",
                 isActive
-                  ? "text-primary"
+                  ? "text-foreground"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <Icon className="h-5 w-5" />
+              <span
+                className={cn(
+                  "flex h-9 w-9 items-center justify-center rounded-2xl transition-colors",
+                  isActive && "bg-[linear-gradient(180deg,hsl(var(--primary)/0.2),hsl(var(--primary)/0.1))] text-primary",
+                )}
+              >
+                <Icon className="h-5 w-5" />
+              </span>
               <span>{item.label}</span>
             </Link>
           );
@@ -97,7 +103,7 @@ export function BottomNav({ className }: BottomNavProps) {
               className="flex flex-col items-center gap-1 px-2 py-2 text-xs text-primary"
               aria-label="Open quick actions"
             >
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+              <span className="flex h-11 w-11 items-center justify-center rounded-full border border-primary/35 bg-[linear-gradient(180deg,hsl(var(--primary))_0%,hsl(220_70%_46%)_100%)] text-primary-foreground shadow-[0_18px_28px_-20px_hsl(var(--primary)/0.9)]">
                 <Plus className="h-5 w-5" />
               </span>
               <span>Add</span>
@@ -176,11 +182,18 @@ export function BottomNav({ className }: BottomNavProps) {
               className={cn(
                 "flex flex-col items-center gap-1 px-2 py-2 text-xs transition-colors",
                 isActive
-                  ? "text-primary"
+                  ? "text-foreground"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <Icon className="h-5 w-5" />
+              <span
+                className={cn(
+                  "flex h-9 w-9 items-center justify-center rounded-2xl transition-colors",
+                  isActive && "bg-[linear-gradient(180deg,hsl(var(--primary)/0.2),hsl(var(--primary)/0.1))] text-primary",
+                )}
+              >
+                <Icon className="h-5 w-5" />
+              </span>
               <span>{item.label}</span>
             </Link>
           );

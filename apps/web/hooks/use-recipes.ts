@@ -3,7 +3,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   apiClient,
-  type Recipe,
   type CreateRecipeInput,
   type UpdateRecipeInput,
 } from "@/lib/api-client";

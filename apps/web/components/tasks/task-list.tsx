@@ -47,9 +47,14 @@ export function TaskList({
 
   if (tasks.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <CheckSquare className="mb-4 h-12 w-12 text-muted-foreground/50" />
-        <p className="mb-2 text-muted-foreground">{emptyMessage}</p>
+      <div className="empty-state-panel flex flex-col items-center justify-center rounded-[1.75rem] px-6 py-16 text-center">
+        <span className="mb-4 flex h-20 w-20 items-center justify-center rounded-full border border-border/80 bg-[linear-gradient(180deg,hsl(var(--card)/0.95),hsl(var(--card)/0.75))] shadow-[inset_0_1px_0_hsl(var(--background)/0.9)]">
+          <CheckSquare className="h-12 w-12 text-foreground" />
+        </span>
+        <p className="mb-2 text-lg font-semibold">{emptyMessage}</p>
+        <p className="mb-4 max-w-sm text-sm text-muted-foreground">
+          Start with one task and build momentum from there.
+        </p>
         <Button asChild>
           <Link href={newTaskHref}>
             <Plus className="mr-2 h-4 w-4" />

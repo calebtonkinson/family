@@ -1,5 +1,12 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { convertToModelMessages, streamText, stepCountIs, type UIMessage } from "ai";
+import {
+  convertToModelMessages,
+  generateText,
+  streamText,
+  stepCountIs,
+  tool,
+  type UIMessage,
+} from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { openai } from "@ai-sdk/openai";
 import { google } from "@ai-sdk/google";
@@ -7,6 +14,7 @@ import { db } from "@home/db";
 import {
   conversations,
   conversationMessages,
+  recipes,
   toolCalls,
   toolResults,
   users,
@@ -15,6 +23,231 @@ import {
 } from "@home/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { getTools } from "@home/ai";
+import { generateConversationTitle } from "../services/conversation-title";
+import { extractRecipePage } from "../services/recipe-url-import.js";
+import { z } from "zod";
+
+type ToolExecutionResult = {
+  text?: string;
+  steps?: Array<{
+    toolCalls?: Array<{ toolCallId: string; toolName: string }>;
+    toolResults?: Array<{ toolCallId: string; output: unknown }>;
+  }>;
+};
+
+const extractCreatedRecipeFromResult = (result: ToolExecutionResult) => {
+  for (const step of result.steps ?? []) {
+    const toolNameByCallId = new Map<string, string>();
+    for (const call of step.toolCalls ?? []) {
+      toolNameByCallId.set(call.toolCallId, call.toolName);
+    }
+
+    for (const toolResult of step.toolResults ?? []) {
+      const toolName = toolNameByCallId.get(toolResult.toolCallId);
+      if (toolName !== "createRecipe") continue;
+
+      const output = toolResult.output as
+        | {
+            success?: boolean;
+            recipe?: { id?: string; title?: string };
+          }
+        | undefined;
+
+      if (
+        output?.success &&
+        typeof output.recipe?.id === "string" &&
+        typeof output.recipe?.title === "string"
+      ) {
+        return {
+          id: output.recipe.id,
+          title: output.recipe.title,
+        };
+      }
+    }
+  }
+
+  return null;
+};
+
+const createImportRecipeFromUrlTool = (
+  context: { householdId: string },
+  createRecipeTool: ReturnType<typeof getTools>["createRecipe"],
+) =>
+  tool({
+    description:
+      "Create a household recipe from a recipe webpage URL while keeping the original source link attached",
+    inputSchema: z.object({
+      url: z.string().url().describe("Recipe webpage URL"),
+      prompt: z
+        .string()
+        .trim()
+        .min(1)
+        .max(2000)
+        .optional()
+        .describe("Optional user instructions for how to save the recipe"),
+    }),
+    execute: async (input) => {
+      let response: Response;
+      try {
+        response = await fetch(input.url, {
+          headers: {
+            accept:
+              "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5",
+            "user-agent":
+              "Mozilla/5.0 (compatible; HomeManagementRecipeImporter/1.0; +https://example.invalid)",
+          },
+          redirect: "follow",
+        });
+      } catch {
+        return {
+          success: false,
+          error: "I couldn't reach that URL.",
+        };
+      }
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: `That URL returned ${response.status}.`,
+        };
+      }
+
+      const contentType =
+        response.headers.get("content-type")?.toLowerCase() ?? "";
+      const rawBody = await response.text();
+      if (!rawBody.trim()) {
+        return {
+          success: false,
+          error: "That page did not return readable content.",
+        };
+      }
+
+      const extractedPage = contentType.includes("text/html")
+        ? extractRecipePage(rawBody, input.url)
+        : {
+            title: null,
+            description: null,
+            siteName: (() => {
+              try {
+                return new URL(input.url).hostname.replace(/^www\./, "");
+              } catch {
+                return null;
+              }
+            })(),
+            imageUrl: null,
+            textContent: rawBody.slice(0, 20_000),
+            recipeJsonLd: null,
+          };
+
+      const attachmentsToPersist = [
+        {
+          url: input.url,
+          mediaType: "text/html",
+          filename:
+            extractedPage.title ?? extractedPage.siteName ?? "Original recipe",
+        },
+        ...(extractedPage.imageUrl
+          ? [
+              {
+                url: extractedPage.imageUrl,
+                mediaType: "image/external",
+                filename: `${extractedPage.title ?? "Recipe"} reference image`,
+              },
+            ]
+          : []),
+      ];
+
+      const nestedTools = {
+        createRecipe: createRecipeTool,
+      };
+
+      const textParts = [
+        "Import a recipe from this URL and save only the practical recipe card.",
+        `Source URL: ${input.url}`,
+        ...(input.prompt ? [`User instructions: ${input.prompt}`] : []),
+        ...(extractedPage.title ? [`Page title: ${extractedPage.title}`] : []),
+        ...(extractedPage.siteName ? [`Site: ${extractedPage.siteName}`] : []),
+        ...(extractedPage.description
+          ? [`Description: ${extractedPage.description}`]
+          : []),
+        extractedPage.recipeJsonLd
+          ? `Structured recipe data:\n${JSON.stringify(
+              extractedPage.recipeJsonLd,
+              null,
+              2,
+            )}`
+          : `Extracted page text:\n${extractedPage.textContent}`,
+      ];
+
+      const messages: Array<Omit<UIMessage, "id">> = [
+        {
+          role: "user",
+          parts: textParts.map((text) => ({ type: "text", text })),
+        },
+      ];
+
+      const modelMessages = await convertToModelMessages(messages, {
+        tools: nestedTools,
+      });
+
+      const result = await generateText({
+        model: openai.chat("gpt-5.1"),
+        system: `You extract the essential recipe from webpage content.
+- Always call createRecipe exactly once when there is enough information.
+- Set source to "link".
+- Keep the saved recipe lean: ingredients, short instructions, and only brief notes for uncertainty.
+- Do not copy introductions, life story sections, ads, or long narrative text from the page.
+- If the source includes a lot of detail, summarize it into a practical household recipe card.`,
+        messages: modelMessages,
+        tools: nestedTools,
+        stopWhen: stepCountIs(5),
+      });
+
+      const createdRecipe = extractCreatedRecipeFromResult(result);
+      if (!createdRecipe) {
+        return {
+          success: false,
+          error: "I couldn't turn that URL into a usable recipe.",
+          message: result.text || null,
+        };
+      }
+
+      await db
+        .update(recipes)
+        .set({
+          attachmentsJson: attachmentsToPersist,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(recipes.id, createdRecipe.id),
+            eq(recipes.householdId, context.householdId),
+          ),
+        );
+
+      return {
+        success: true,
+        recipe: createdRecipe,
+        message: result.text || null,
+      };
+    },
+  });
+
+const buildChatTools = (context: { householdId: string; userId: string }) => {
+  const baseTools = getTools({
+    householdId: context.householdId,
+    userId: context.userId,
+    db,
+  });
+
+  return {
+    ...baseTools,
+    importRecipeFromUrl: createImportRecipeFromUrlTool(
+      { householdId: context.householdId },
+      baseTools.createRecipe,
+    ),
+  };
+};
 
 // Helper to build system prompt with user context
 async function buildSystemPrompt(
@@ -110,7 +343,8 @@ ${userContext}${householdContext}${familyContext}
 - Be concise and friendly
 - Address the user by their name or nickname when appropriate
 - When users ask you to create tasks or projects, use the appropriate tools
-- When users ask you to create recipes or share recipe photos, extract ingredients and instructions (separate lists) and use the createRecipe tool
+- When users ask you to create recipes from a URL, use importRecipeFromUrl
+- When users ask you to create recipes manually or share recipe photos/files, extract ingredients and instructions (separate lists) and use the createRecipe tool
 - Do not use task tools for recipe requests
 - For meal-planning requests, first call getMealPlanningPreferences, then use recipe tools and bulkUpsertMealPlans
 - For "what's for dinner"/"what should we eat" requests, check today's entries with listMealPlans
@@ -127,7 +361,8 @@ ${userContext}${householdContext}${familyContext}
 - getFamilyMember: Get family member details
 - listThemes: List themes
 - createTheme: Create a theme
-- createRecipe: Create a recipe (use for any recipe request or recipe image/file)
+- importRecipeFromUrl: Create a recipe from a recipe webpage URL
+- createRecipe: Create a recipe directly (use for manual recipes or recipe images/files)
 - listRecipes: List recipes in the household cookbook
 - searchRecipes: Search recipes by text
 - listMealPlans: List meal plan entries for a date range
@@ -203,15 +438,26 @@ aiRouter.post("/chat/:conversationId", async (c) => {
     return { data: url };
   };
 
-  const normalizeParts = (msg: IncomingMessage): Array<{ type: "text"; text: string } | { type: "file"; url: string; mediaType: string; filename?: string }> => {
-    const parts = msg.parts && Array.isArray(msg.parts)
-      ? msg.parts
-      : msg.content
-        ? [{ type: "text", text: msg.content }]
-        : [];
+  const normalizeParts = (
+    msg: IncomingMessage,
+  ): Array<
+    | { type: "text"; text: string }
+    | { type: "file"; url: string; mediaType: string; filename?: string }
+  > => {
+    const parts =
+      msg.parts && Array.isArray(msg.parts)
+        ? msg.parts
+        : msg.content
+          ? [{ type: "text", text: msg.content }]
+          : [];
 
     return parts.flatMap(
-      (part): Array<{ type: "text"; text: string } | { type: "file"; url: string; mediaType: string; filename?: string }> => {
+      (
+        part,
+      ): Array<
+        | { type: "text"; text: string }
+        | { type: "file"; url: string; mediaType: string; filename?: string }
+      > => {
         if (part.type === "text" && part.text) {
           return [{ type: "text" as const, text: part.text }];
         }
@@ -219,12 +465,14 @@ aiRouter.post("/chat/:conversationId", async (c) => {
           const normalized = normalizeFileUrl(part.url);
           const url = normalized.data;
           if (!url) return [];
-          return [{
-            type: "file" as const,
-            url,
-            mediaType: normalized.mediaType ?? part.mediaType,
-            filename: part.filename,
-          }];
+          return [
+            {
+              type: "file" as const,
+              url,
+              mediaType: normalized.mediaType ?? part.mediaType,
+              filename: part.filename,
+            },
+          ];
         }
         return [];
       },
@@ -232,18 +480,34 @@ aiRouter.post("/chat/:conversationId", async (c) => {
   };
 
   const summarizeParts = (
-    parts: Array<{ type: "text"; text: string } | { type: "file"; url: string; mediaType: string; filename?: string }>,
+    parts: Array<
+      | { type: "text"; text: string }
+      | { type: "file"; url: string; mediaType: string; filename?: string }
+    >,
   ) => {
     const text = parts
-      .filter((part): part is { type: "text"; text: string } => part.type === "text")
+      .filter(
+        (part): part is { type: "text"; text: string } => part.type === "text",
+      )
       .map((part) => part.text)
       .join("");
     const attachments = parts
-      .filter((part): part is { type: "file"; url: string; mediaType: string; filename?: string } => part.type === "file")
+      .filter(
+        (
+          part,
+        ): part is {
+          type: "file";
+          url: string;
+          mediaType: string;
+          filename?: string;
+        } => part.type === "file",
+      )
       .map((part) => `Attachment: ${part.filename || part.mediaType}`)
       .join("\n");
 
-    return [text, attachments].filter((value) => value && value.trim()).join("\n\n");
+    return [text, attachments]
+      .filter((value) => value && value.trim())
+      .join("\n\n");
   };
 
   const normalizedMessages: Array<Omit<UIMessage, "id">> = rawMessages
@@ -303,14 +567,16 @@ aiRouter.post("/chat/:conversationId", async (c) => {
     role: "user",
     content: lastUserContent || null,
     sequence: nextSequence,
-    rawMessage: !hasFilePart && lastUserParts.length > 0 ? { role: "user", parts: lastUserParts } : null,
+    rawMessage:
+      !hasFilePart && lastUserParts.length > 0
+        ? { role: "user", parts: lastUserParts }
+        : null,
   });
 
   // Get tools
-  const tools = getTools({
+  const tools = buildChatTools({
     householdId: auth.householdId,
     userId: auth.userId,
-    db,
   });
 
   const model = getModel(conversation.provider, conversation.model);
@@ -318,7 +584,9 @@ aiRouter.post("/chat/:conversationId", async (c) => {
   // Build system prompt with user context
   const systemPrompt = await buildSystemPrompt(auth.householdId, auth.userId);
 
-  const modelMessages = await convertToModelMessages(normalizedMessages, { tools });
+  const modelMessages = await convertToModelMessages(normalizedMessages, {
+    tools,
+  });
 
   const logMessages = normalizedMessages.map((message) => ({
     role: message.role,
@@ -495,7 +763,9 @@ aiRouter.post("/chat/:conversationId", async (c) => {
       const persistedToolCalls = toolCallOrder
         .map((toolCallId) => toolCallsById.get(toolCallId))
         .filter(
-          (toolCall): toolCall is {
+          (
+            toolCall,
+          ): toolCall is {
             toolCallId: string;
             toolName: string;
             toolInput: Record<string, unknown>;
@@ -534,19 +804,15 @@ aiRouter.post("/chat/:conversationId", async (c) => {
         updatedAt: new Date(),
       };
 
-      // Auto-generate title from first user message if not set.
-      // Prefer parsed user text (works with parts-based messages) and avoid attachment-only titles.
+      // Generate a durable title from the first turn instead of truncating the raw prompt.
       if (!conversation.title && lastUserContent) {
-        const titleSource = lastUserContent
-          .split("\n")
-          .map((line) => line.trim())
-          .find((line) => line.length > 0 && !line.startsWith("Attachment:"));
-
-        if (titleSource) {
-          const title = titleSource.slice(0, 50);
-          updateData.title =
-            title.length < titleSource.length ? `${title}...` : title;
-        }
+        updateData.title =
+          (await generateConversationTitle({
+            provider: conversation.provider,
+            modelName: conversation.model,
+            userMessage: lastUserContent,
+            assistantMessage: text,
+          })) ?? undefined;
       }
 
       await db
@@ -589,10 +855,9 @@ aiRouter.post("/chat", async (c) => {
     return c.json({ error: "At least one user message is required" }, 400);
   }
 
-  const tools = getTools({
+  const tools = buildChatTools({
     householdId: auth.householdId,
     userId: auth.userId,
-    db,
   });
 
   const aiModel = getModel(provider, model);

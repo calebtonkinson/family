@@ -5,25 +5,28 @@ import { useChat, type UIMessage } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { getSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
+  ArrowDown,
   Send,
   Bot,
   User,
   Loader2,
-  Wrench,
   Paperclip,
   X,
   Telescope,
   CheckCircle2,
   CircleAlert,
-  Sparkles,
   ImageIcon,
   FileText,
   CornerDownLeft,
+  ListTodo,
+  Users,
+  UtensilsCrossed,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getPendingMessage, getPendingFiles, getPendingResearch } from "@/lib/pending-chat-message";
@@ -60,6 +63,109 @@ interface ToolPart {
   args?: Record<string, unknown>;
   result?: unknown;
 }
+
+function formatToolName(name: string) {
+  return name
+    .replace(/^tool-/, "")
+    .replace(/([A-Z])/g, " $1")
+    .replace(/^./, (value) => value.toUpperCase())
+    .trim();
+}
+
+function toRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function describeToolResult(tool: ChatToolInvocation) {
+  const output = toRecord(tool.output);
+
+  if (tool.state === "output-error") {
+    return tool.errorText || "Action failed";
+  }
+
+  if (tool.state !== "output-available" && tool.state !== "output" && tool.state !== "result") {
+    return "Working…";
+  }
+
+  if (!output) {
+    return formatToolName(tool.toolName);
+  }
+
+  if (typeof output.count === "number") {
+    const label = formatToolName(tool.toolName).toLowerCase();
+    return `${output.count} ${label.replace(/^list /, "").trim()}`;
+  }
+
+  if (typeof output.message === "string" && output.message.trim()) {
+    return output.message.trim();
+  }
+
+  const task = toRecord(output.task);
+  if (task && typeof task.title === "string") {
+    return task.title;
+  }
+
+  const recipe = toRecord(output.recipe);
+  if (recipe && typeof recipe.title === "string") {
+    return recipe.title;
+  }
+
+  return formatToolName(tool.toolName);
+}
+
+function ToolActivityChip({ tool }: { tool: ChatToolInvocation }) {
+  const isError = tool.state === "output-error" || tool.state === "output-denied";
+  const isDone =
+    tool.state === "output-available" || tool.state === "output" || tool.state === "result";
+  const Icon = isError ? CircleAlert : isDone ? CheckCircle2 : Loader2;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-left text-xs transition hover:border-border hover:bg-background/95",
+            isError
+              ? "border-destructive/30 bg-destructive/5 text-destructive"
+              : isDone
+                ? "border-border/70 bg-background/82 text-foreground"
+                : "border-info/30 bg-info/5 text-info",
+          )}
+        >
+          <Icon className={cn("h-3.5 w-3.5 shrink-0", !isDone && !isError && "animate-spin")} />
+          <span className="truncate font-medium">{formatToolName(tool.toolName)}</span>
+          <span className="truncate text-muted-foreground">{describeToolResult(tool)}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-[min(30rem,calc(100vw-2rem))] rounded-[1.25rem] border-border/70 bg-card/98 p-2 shadow-[0_24px_48px_-30px_hsl(var(--foreground)/0.35)]"
+      >
+        <ToolInvocationCard tool={tool} className="w-full max-w-full border-border/60 shadow-none hover:translate-y-0" />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+const composerQuickActions = [
+  {
+    label: "Today",
+    prompt: "Show me my tasks for today and highlight the top priorities",
+    icon: ListTodo,
+  },
+  {
+    label: "Dinner",
+    prompt: "Plan dinner for the next three nights",
+    icon: UtensilsCrossed,
+  },
+  {
+    label: "Family",
+    prompt: "List all family members and summarize who owns what right now",
+    icon: Users,
+  },
+];
 
 // Helper to extract text content from UIMessage
 function getMessageText(message: UIMessage): string {
@@ -107,6 +213,7 @@ export function Chat({
   const [inputValue, setInputValue] = useState("");
   const [pendingFiles, setPendingFiles] = useState<FileList | null>(null);
   const pendingFileArray = pendingFiles ? Array.from(pendingFiles) : [];
+  const [isAtBottom, setIsAtBottom] = useState(true);
 
   const [researchStatus, setResearchStatus] = useState<ResearchRunStatusResponse | null>(
     initialResearchStatus || null,
@@ -136,6 +243,10 @@ export function Chat({
   });
 
   const isLoading = status === "streaming" || status === "submitted";
+
+  const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+    bottomRef.current?.scrollIntoView({ behavior, block: "end" });
+  };
   const hasSentPendingPayload = useRef(false);
   const sendMessageRef = useRef(sendMessage);
   sendMessageRef.current = sendMessage;
@@ -198,15 +309,31 @@ export function Chat({
     }
   }, [initialPendingMessage]);
 
-  // Auto-scroll to bottom on new messages
+  useEffect(() => {
+    const viewport = scrollRef.current?.querySelector(
+      "[data-radix-scroll-area-viewport]",
+    ) as HTMLDivElement | null;
+    if (!viewport) return;
+
+    const handleScroll = () => {
+      const distanceFromBottom =
+        viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+      setIsAtBottom(distanceFromBottom < 80);
+    };
+
+    handleScroll();
+    viewport.addEventListener("scroll", handleScroll, { passive: true });
+    return () => viewport.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Auto-scroll to bottom on new messages, but do not yank the user down if they scrolled up.
   useEffect(() => {
     if (!bottomRef.current) return;
-    bottomRef.current.scrollIntoView({
-      behavior: hasMountedRef.current ? "smooth" : "auto",
-      block: "end",
-    });
+    if (!hasMountedRef.current || isAtBottom || isLoading) {
+      scrollToBottom(hasMountedRef.current ? "smooth" : "auto");
+    }
     hasMountedRef.current = true;
-  }, [messages, isLoading, researchStatus]);
+  }, [messages, isLoading, researchStatus, isAtBottom]);
 
   // Auto-resize composer as the user types
   useEffect(() => {
@@ -316,6 +443,19 @@ export function Chat({
     formRef.current?.requestSubmit();
   };
 
+  const handleQuickAction = (prompt: string) => {
+    if (isLoading || isResearchLoading) return;
+
+    if (pendingFiles) {
+      setInputValue(prompt);
+      inputRef.current?.focus();
+      return;
+    }
+
+    sendMessage({ text: prompt });
+    scrollToBottom();
+  };
+
   // Auto-approve research: create plan + immediately start the run
   const handleStartResearch = async (queryOverride?: string) => {
     const queryText = (queryOverride ?? inputValue).trim();
@@ -401,163 +541,193 @@ export function Chat({
   const isResearchInProgress =
     researchStatus != null &&
     (researchStatus.run.status === "running" || researchStatus.run.status === "planning");
+  const hasMessages = messages.length > 0;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* Messages */}
       <ScrollArea ref={scrollRef} className="flex-1 min-h-0 min-w-0">
-        <div className="mx-auto w-full max-w-4xl space-y-5 px-4 py-5 lg:max-w-6xl">
+        <div className="mx-auto w-full max-w-5xl space-y-5 px-4 py-5 lg:px-6 lg:py-6">
+          <section
+            className={cn(
+              hasMessages
+                ? "rounded-[1.5rem] border border-border/70 bg-card/72 px-4 py-3 shadow-[inset_0_1px_0_hsl(var(--background)/0.86)]"
+                : "chat-thread-stage rounded-[2rem] p-5 md:p-6",
+            )}
+          >
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="max-w-2xl">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  Conversation
+                </p>
+                <p
+                  className={cn(
+                    "text-foreground",
+                    hasMessages
+                      ? "mt-1 text-base font-semibold tracking-[-0.02em]"
+                      : "mt-2 text-2xl font-semibold tracking-[-0.03em]",
+                  )}
+                >
+                  {hasMessages
+                    ? "Context stays anchored while the thread stays lightweight."
+                    : "Start with a clear request and shape it as you go."}
+                </p>
+                <p className={cn("text-sm leading-6 text-muted-foreground", hasMessages ? "mt-1" : "mt-2")}>
+                  {hasMessages
+                    ? "Use the quick actions below when you need to branch into tasks, meals, or family context without opening a new screen."
+                    : "Ask for planning, updates, recipes, or research. The assistant can work directly with the rest of the household app."}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                <span className="rounded-full border border-border/70 bg-background/70 px-3 py-1.5">
+                  {messages.length} {messages.length === 1 ? "message" : "messages"}
+                </span>
+                <span className="rounded-full border border-border/70 bg-background/70 px-3 py-1.5">
+                  {isResearchInProgress ? "Research active" : "Assistant ready"}
+                </span>
+              </div>
+            </div>
+          </section>
+
           {messages.map((message) => {
             const textContent = getMessageText(message);
             const toolParts = getToolParts(message);
             const fileParts = getFileParts(message);
             const presentation = getPresentationFromMessage(message);
+            const normalizedTools = toolParts.map((tool, idx) => {
+              const toolPart = tool as unknown as ToolPart;
+              const toolName =
+                toolPart.toolName ||
+                toolPart.type.replace(/^tool-/, "") ||
+                "tool";
+
+              return {
+                id: toolPart.toolCallId || `${message.id}-tool-${idx}`,
+                toolName,
+                state: toolPart.state,
+                input: toolPart.input || toolPart.args,
+                output: toolPart.output || toolPart.result,
+                errorText: toolPart.errorText,
+              } satisfies ChatToolInvocation;
+            });
+            const shouldRenderMessageCard =
+              textContent || fileParts.length > 0 || (message.role !== "user" && normalizedTools.length > 0);
 
             // Skip rendering empty messages
-            if (!textContent && toolParts.length === 0 && fileParts.length === 0) {
+            if (!shouldRenderMessageCard) {
               return null;
             }
 
             return (
-              <div key={message.id} className="space-y-2.5">
-                {/* Tool Invocations */}
-                {toolParts.length > 0 && (
-                  <div className="flex min-w-0 gap-3">
-                    <Avatar className="h-8 w-8 shrink-0 border border-info/35 bg-info/10">
-                      <AvatarFallback className="bg-transparent text-info">
-                        <Wrench className="h-4 w-4" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1 space-y-2 rounded-2xl border border-info/25 bg-gradient-to-br from-info/5 via-background to-background p-3">
-                      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-info">
-                        <Sparkles className="h-3.5 w-3.5" />
-                        Tool activity
-                      </div>
-                      {toolParts.map((tool, idx) => {
-                        const toolPart = tool as unknown as ToolPart;
-                        const toolName =
-                          toolPart.toolName ||
-                          toolPart.type.replace(/^tool-/, "") ||
-                          "tool";
-
-                        const normalizedTool: ChatToolInvocation = {
-                          id: toolPart.toolCallId || `${message.id}-tool-${idx}`,
-                          toolName,
-                          state: toolPart.state,
-                          input: toolPart.input || toolPart.args,
-                          output: toolPart.output || toolPart.result,
-                          errorText: toolPart.errorText,
-                        };
-
-                        return (
-                          <ToolInvocationCard
-                            key={normalizedTool.id}
-                            tool={normalizedTool}
-                            className="w-full max-w-full"
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
+              <div
+                key={message.id}
+                className={cn(
+                  "flex min-w-0 items-start gap-3",
+                  message.role === "user" && "flex-row-reverse",
                 )}
-
-                {/* Message Content */}
-                {(textContent || fileParts.length > 0) && (
-                  <div
+              >
+                <Avatar className="mt-1 h-9 w-9 shrink-0 border border-border/70">
+                  <AvatarFallback
                     className={cn(
-                      "flex min-w-0 items-start gap-3",
-                      message.role === "user" && "flex-row-reverse",
+                      message.role === "user" &&
+                        "border-primary/40 bg-primary text-primary-foreground",
+                      message.role !== "user" && "bg-muted/80 text-foreground",
                     )}
                   >
-                    <Avatar className="h-8 w-8 shrink-0 border">
-                      <AvatarFallback
-                        className={cn(
-                          message.role === "user" &&
-                            "border-primary/40 bg-primary text-primary-foreground",
-                          message.role !== "user" && "bg-muted/80 text-foreground",
-                        )}
-                      >
-                        {message.role === "user" ? (
-                          <User className="h-4 w-4" />
-                        ) : (
-                          <Bot className="h-4 w-4" />
-                        )}
-                      </AvatarFallback>
-                    </Avatar>
-                    <Card
-                      className={cn(
-                        "w-full min-w-0 max-w-[86%] space-y-3 overflow-x-hidden break-words rounded-2xl px-4 py-3.5 shadow-sm lg:max-w-[92%]",
-                        message.role === "user" &&
-                          "border-primary/40 bg-gradient-to-br from-primary to-primary/85 text-primary-foreground shadow-md shadow-primary/20",
-                        message.role !== "user" &&
-                          "border-border/70 bg-gradient-to-br from-card via-card to-muted/35",
-                      )}
-                    >
-                      <div className="flex items-center gap-1.5">
-                        {message.role === "user" ? (
-                          <User className="h-3.5 w-3.5 text-primary-foreground/80" />
-                        ) : (
-                          <Bot className="h-3.5 w-3.5 text-muted-foreground" />
-                        )}
-                        <div
-                          className={cn(
-                            "text-[11px] font-semibold uppercase tracking-wide",
-                            message.role === "user"
-                              ? "text-primary-foreground/80"
-                              : "text-muted-foreground",
-                          )}
-                        >
-                          {message.role === "user" ? "You" : "Assistant"}
-                        </div>
+                    {message.role === "user" ? (
+                      <User className="h-4 w-4" />
+                    ) : (
+                      <Bot className="h-4 w-4" />
+                    )}
+                  </AvatarFallback>
+                </Avatar>
+                <Card
+                  className={cn(
+                    "w-full min-w-0 max-w-[90%] space-y-3 overflow-x-hidden break-words rounded-[1.6rem] px-4 py-4 shadow-none lg:max-w-[88%]",
+                    message.role === "user"
+                      ? "chat-message-user-surface text-primary-foreground"
+                      : "border-border/55 bg-card/72 backdrop-blur-sm",
+                  )}
+                >
+                  {message.role === "user" ? (
+                    <div className="flex items-center gap-1.5">
+                      <div className="rounded-full bg-primary-foreground/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary-foreground/82">
+                        You
                       </div>
-                      {fileParts.length > 0 && (
-                        <div className="space-y-2 rounded-xl border border-border/50 bg-background/20 p-2">
-                          {fileParts.map((file, idx) => (
-                            <div key={`${file.url}-${idx}`} className="space-y-2">
-                              {file.mediaType.startsWith("image/") ? (
-                                <div className="space-y-1">
-                                  <img
-                                    src={file.url}
-                                    alt={file.filename || "Uploaded image"}
-                                    className="max-h-64 w-full rounded-lg border object-contain"
-                                  />
-                                  {file.filename && (
-                                    <div className={cn(
-                                      "inline-flex items-center gap-1 text-xs text-muted-foreground",
-                                      message.role === "user" && "text-primary-foreground/80"
-                                    )}>
-                                      <ImageIcon className="h-3.5 w-3.5" />
-                                      {file.filename}
-                                    </div>
-                                  )}
+                    </div>
+                  ) : null}
+                  {message.role !== "user" && normalizedTools.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      <span className="sr-only">Tool activity</span>
+                      <div className="flex flex-wrap gap-2">
+                        {normalizedTools.map((tool) => (
+                          <ToolActivityChip key={tool.id} tool={tool} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {fileParts.length > 0 && (
+                    <div className="space-y-2 rounded-2xl border border-border/50 bg-background/20 p-2.5">
+                      {fileParts.map((file, idx) => (
+                        <div key={`${file.url}-${idx}`} className="space-y-2">
+                          {file.mediaType.startsWith("image/") ? (
+                            <div className="space-y-1">
+                              <img
+                                src={file.url}
+                                alt={file.filename || "Uploaded image"}
+                                className="max-h-64 w-full rounded-lg border object-contain"
+                              />
+                              {file.filename && (
+                                <div className={cn(
+                                  "inline-flex items-center gap-1 text-xs text-muted-foreground",
+                                  message.role === "user" && "text-primary-foreground/80"
+                                )}>
+                                  <ImageIcon className="h-3.5 w-3.5" />
+                                  {file.filename}
                                 </div>
-                              ) : (
-                                <a
-                                  href={file.url}
-                                  download={file.filename}
-                                  className={cn(
-                                    "flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs",
-                                    message.role === "user"
-                                      ? "border-primary-foreground/30"
-                                      : "border-border"
-                                  )}
-                                >
-                                  <span className="flex min-w-0 items-center gap-1.5 truncate">
-                                    <FileText className="h-3.5 w-3.5 shrink-0" />
-                                    {file.filename || "Attachment"}
-                                  </span>
-                                  <span className={cn(
-                                    "text-muted-foreground",
-                                    message.role === "user" && "text-primary-foreground/80"
-                                  )}>
-                                    {file.mediaType}
-                                  </span>
-                                </a>
                               )}
                             </div>
-                          ))}
+                          ) : (
+                            <a
+                              href={file.url}
+                              download={file.filename}
+                              className={cn(
+                                "flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs",
+                                message.role === "user"
+                                  ? "border-primary-foreground/30"
+                                  : "border-border"
+                              )}
+                            >
+                              <span className="flex min-w-0 items-center gap-1.5 truncate">
+                                <FileText className="h-3.5 w-3.5 shrink-0" />
+                                {file.filename || "Attachment"}
+                              </span>
+                              <span className={cn(
+                                "text-muted-foreground",
+                                message.role === "user" && "text-primary-foreground/80"
+                              )}>
+                                {file.mediaType}
+                              </span>
+                            </a>
+                          )}
                         </div>
+                      ))}
+                    </div>
+                  )}
+                  {/* If this is a research report with presentation blocks, render them */}
+                  {presentation && message.role === "assistant" ? (
+                    <ResearchPresentationView presentation={presentation} />
+                  ) : textContent ? (
+                    <div
+                      className={cn(
+                        "prose prose-sm max-w-none whitespace-pre-wrap break-words text-[15px] leading-7 [overflow-wrap:anywhere] dark:prose-invert",
+                        "prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1",
+                        "prose-headings:mt-3 prose-headings:mb-1.5 prose-headings:font-semibold prose-headings:break-words prose-headings:[overflow-wrap:anywhere]",
+                        "prose-pre:max-w-full prose-pre:overflow-x-auto prose-pre:whitespace-pre-wrap prose-pre:break-words prose-pre:[overflow-wrap:anywhere] prose-pre:bg-muted prose-pre:text-foreground",
+                        "prose-code:text-foreground [&_p]:break-words [&_li]:break-words [&_a]:break-all [&_pre_code]:whitespace-pre-wrap [&_pre_code]:break-all [&_pre_code]:[overflow-wrap:anywhere]",
+                        message.role === "user" &&
+                          "prose-invert [&_a]:text-primary-foreground [&_a]:underline [&_strong]:text-primary-foreground",
                       )}
+<<<<<<< HEAD
                       {/* If this is a research report with presentation blocks, render them */}
                       {presentation && message.role === "assistant" ? (
                         <ResearchPresentationView presentation={presentation} />
@@ -577,6 +747,13 @@ export function Chat({
                     </Card>
                   </div>
                 )}
+=======
+                    >
+                      <ReactMarkdown>{textContent}</ReactMarkdown>
+                    </div>
+                  ) : null}
+                </Card>
+>>>>>>> 4549256 (updates)
               </div>
             );
           })}
@@ -588,7 +765,7 @@ export function Chat({
                   <Bot className="h-4 w-4" />
                 </AvatarFallback>
               </Avatar>
-              <Card className="rounded-xl border-border/70 bg-muted/30 px-4 py-3">
+              <Card className="chat-message-surface rounded-[1.4rem] border-border/70 bg-transparent px-4 py-3">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Thinking...
@@ -605,7 +782,7 @@ export function Chat({
                   <Telescope className="h-4 w-4" />
                 </AvatarFallback>
               </Avatar>
-              <Card className="flex items-center gap-3 rounded-xl border-info/25 bg-info/5 px-4 py-3">
+              <Card className="flex items-center gap-3 rounded-[1.4rem] border-info/25 bg-info/5 px-4 py-3">
                 <Loader2 className="h-4 w-4 animate-spin text-info" />
                 <div className="min-w-0">
                   <div className="text-sm font-medium">Researching&hellip;</div>
@@ -657,13 +834,48 @@ export function Chat({
         </div>
       </ScrollArea>
 
-      {/* Input */}
+      <div className="pointer-events-none sticky bottom-4 z-20 mx-auto flex w-full max-w-5xl justify-end px-4 lg:px-6">
+        {!isAtBottom ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => scrollToBottom()}
+            className="pointer-events-auto gap-2 rounded-full bg-background/95 shadow-sm backdrop-blur"
+          >
+            <ArrowDown className="h-4 w-4" />
+            Jump to latest
+          </Button>
+        ) : null}
+      </div>
+
       <form
         ref={formRef}
         onSubmit={handleSubmit}
         className="shrink-0 border-t border-border/70 bg-background/95 px-4 pb-4 pt-3 backdrop-blur supports-[backdrop-filter]:bg-background/80"
       >
-        <div className="mx-auto w-full max-w-4xl space-y-2">
+        <div className="mx-auto w-full max-w-5xl space-y-2">
+          <div className="flex flex-wrap gap-2">
+            {composerQuickActions.map((action) => {
+              const Icon = action.icon;
+
+              return (
+                <Button
+                  key={action.label}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleQuickAction(action.prompt)}
+                  disabled={isLoading || isResearchLoading}
+                  className="gap-2 rounded-full"
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {action.label}
+                </Button>
+              );
+            })}
+          </div>
+
           <input
             ref={fileInputRef}
             type="file"
@@ -711,7 +923,7 @@ export function Chat({
             </div>
           )}
 
-          <div className="rounded-2xl border border-border/70 bg-card/80 p-2 shadow-sm transition focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/20">
+          <div className="chat-input-dock rounded-[1.65rem] p-2.5 transition focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/20">
             <div className="flex min-w-0 items-end gap-2">
               <Button
                 type="button"
@@ -758,13 +970,13 @@ export function Chat({
                   isResearchLoading ||
                   (!inputValue.trim() && !pendingFiles)
                 }
-                className="shrink-0 gap-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-primary/30 disabled:text-primary-foreground/70 disabled:opacity-100"
+                className="shrink-0 gap-2 rounded-xl bg-primary text-white hover:bg-primary/90 disabled:bg-primary/30 disabled:text-white/70 disabled:opacity-100 [&_svg]:text-white"
               >
                 <Send className="h-4 w-4" />
                 <span className="hidden text-sm font-medium sm:inline">Send</span>
               </Button>
             </div>
-            <div className="mt-1 flex items-center justify-between px-2 pb-0.5">
+            <div className="mt-2 flex items-center justify-between px-2 pb-0.5">
               <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
                 <CornerDownLeft className="h-3.5 w-3.5" />
                 Enter sends &middot; Shift+Enter for new line
@@ -779,4 +991,3 @@ export function Chat({
     </div>
   );
 }
-

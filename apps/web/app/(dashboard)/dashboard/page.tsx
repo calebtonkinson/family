@@ -80,6 +80,26 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      <section className="feature-panel overflow-hidden rounded-[1.75rem] p-5 md:p-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="space-y-2">
+            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+              Household Hub
+            </p>
+            <div className="space-y-1">
+              <h1 className="text-3xl md:text-4xl">Today at home</h1>
+              <p className="max-w-2xl text-sm text-muted-foreground md:text-base">
+                A quick view of what needs attention, what is planned, and what is still open.
+              </p>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-border/70 bg-[linear-gradient(180deg,hsl(var(--card)/0.9),hsl(var(--card)/0.72))] px-4 py-3 text-sm shadow-[inset_0_1px_0_hsl(var(--background)/0.9)]">
+            <p className="font-semibold">{format(new Date(), "EEEE")}</p>
+            <p className="text-muted-foreground">{format(new Date(), "MMMM d, yyyy")}</p>
+          </div>
+        </div>
+      </section>
+
       <section>
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-1.5">
@@ -99,8 +119,8 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : (
-          <Card>
-            <CardContent className="py-6 text-center text-muted-foreground">
+          <Card className="empty-state-panel">
+            <CardContent className="py-8 text-center text-muted-foreground">
               Pin a list to keep it on your home page.
             </CardContent>
           </Card>
@@ -119,16 +139,19 @@ export default function DashboardPage() {
             </Link>
           </Button>
         </div>
-        <Card>
+        <Card className="feature-panel overflow-hidden">
           <CardContent className="p-0">
             <div className="divide-y">
               {mealsBySlot.map(({ slot, meals }) => (
-                <div key={slot} className="flex items-start justify-between gap-4 px-4 py-3">
-                  <p className="text-sm font-medium">{formatMealSlot(slot)}</p>
+                <div
+                  key={slot}
+                  className="flex items-start justify-between gap-4 px-4 py-3 transition-colors hover:bg-[hsl(var(--foreground)/0.02)]"
+                >
+                  <p className="text-sm font-semibold">{formatMealSlot(slot)}</p>
                   <div className="max-w-[70%] space-y-1 text-right text-sm text-muted-foreground">
                     {meals.length > 0 ? (
                       meals.map((meal) => (
-                        <p key={meal.id} className="truncate">
+                        <p key={meal.id} className="truncate text-foreground/78">
                           {mealPlanSummary(meal)}
                         </p>
                       ))
@@ -161,12 +184,13 @@ export default function DashboardPage() {
 function DashboardSkeleton() {
   return (
     <div className="space-y-6">
+      <Skeleton className="h-40 w-full rounded-[1.75rem]" />
       {[1, 2, 3].map((section) => (
         <section key={section}>
-          <Skeleton className="mb-3 h-5 w-32" />
+          <Skeleton className="mb-3 h-5 w-32 rounded-full" />
           <div className="space-y-2">
             {[1, 2, 3].map((item) => (
-              <Skeleton key={`${section}-${item}`} className="h-16 w-full" />
+              <Skeleton key={`${section}-${item}`} className="h-16 w-full rounded-2xl" />
             ))}
           </div>
         </section>

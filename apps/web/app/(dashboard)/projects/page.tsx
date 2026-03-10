@@ -30,11 +30,11 @@ export default function ProjectsPage() {
   const themes = themesData?.data || [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Projects</h1>
-        <Button asChild>
+        <h1 className="text-2xl font-bold tracking-[-0.03em]">Projects</h1>
+        <Button asChild size="sm">
           <Link href="/projects/new">
             <Plus className="mr-2 h-4 w-4" />
             New Project
@@ -43,9 +43,9 @@ export default function ProjectsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col gap-4 sm:flex-row">
+      <div className="flex flex-col gap-3 sm:flex-row">
         <Select value={themeId} onValueChange={setThemeId}>
-          <SelectTrigger className="w-full sm:w-[180px]">
+          <SelectTrigger className="h-10 w-full rounded-xl border-input bg-[linear-gradient(180deg,hsl(var(--card)/0.96),hsl(var(--card)/0.9))] shadow-[inset_0_1px_0_hsl(var(--background)/0.8)] sm:w-[180px]">
             <SelectValue placeholder="All themes" />
           </SelectTrigger>
           <SelectContent>
@@ -59,7 +59,7 @@ export default function ProjectsPage() {
         </Select>
 
         <Select value={activeFilter} onValueChange={setActiveFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]">
+          <SelectTrigger className="h-10 w-full rounded-xl border-input bg-[linear-gradient(180deg,hsl(var(--card)/0.96),hsl(var(--card)/0.9))] shadow-[inset_0_1px_0_hsl(var(--background)/0.8)] sm:w-[180px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

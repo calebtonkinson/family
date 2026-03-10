@@ -40,10 +40,10 @@ export default function ListsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">Lists</h1>
-        <Button onClick={() => setShowCreate((prev) => !prev)}>
+        <h1 className="text-2xl font-bold tracking-[-0.03em]">Lists</h1>
+        <Button onClick={() => setShowCreate((prev) => !prev)} size="sm">
           {showCreate ? (
             <X className="mr-2 h-4 w-4" />
           ) : (
@@ -59,7 +59,7 @@ export default function ListsPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search lists..."
-          className="pl-9"
+          className="h-10 pl-9"
         />
       </div>
 
@@ -72,12 +72,13 @@ export default function ListsPage() {
             autoFocus
           />
           <div className="flex gap-2">
-            <Button type="submit" disabled={createList.isPending}>
+            <Button type="submit" disabled={createList.isPending} size="sm">
               Create list
             </Button>
             <Button
               type="button"
               variant="outline"
+              size="sm"
               onClick={() => {
                 setShowCreate(false);
                 setNewListName("");

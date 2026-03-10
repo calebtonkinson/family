@@ -5,12 +5,12 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium tracking-[0.01em] transition-all duration-200 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring/70 focus-visible:ring-ring/40 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold tracking-[0.01em] transition-all duration-200 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring/70 focus-visible:ring-ring/40 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
   {
     variants: {
       variant: {
         default:
-          "border border-primary/70 bg-[linear-gradient(180deg,hsl(var(--primary))_0%,hsl(var(--primary)/0.9)_100%)] text-primary-foreground shadow-[inset_0_1px_0_hsl(var(--primary-foreground)/0.2),0_14px_28px_-20px_hsl(var(--primary)/0.85)] hover:brightness-105 hover:shadow-[inset_0_1px_0_hsl(var(--primary-foreground)/0.22),0_18px_32px_-20px_hsl(var(--primary)/0.88)]",
+          "border border-primary/70 bg-[linear-gradient(180deg,hsl(var(--primary))_0%,hsl(220_70%_46%)_100%)] text-white [&_svg]:text-white shadow-[inset_0_1px_0_hsl(var(--primary-foreground)/0.22),0_18px_36px_-24px_hsl(var(--primary)/0.8)] hover:-translate-y-px hover:brightness-105 hover:shadow-[inset_0_1px_0_hsl(var(--primary-foreground)/0.22),0_24px_42px_-24px_hsl(var(--primary)/0.82)]",
         destructive:
           "border border-destructive/70 bg-[linear-gradient(180deg,hsl(var(--destructive))_0%,hsl(var(--destructive)/0.88)_100%)] text-destructive-foreground shadow-[inset_0_1px_0_hsl(var(--destructive-foreground)/0.18),0_14px_28px_-20px_hsl(var(--destructive)/0.8)] hover:brightness-105 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40",
         success:
@@ -20,11 +20,11 @@ const buttonVariants = cva(
         info:
           "border border-info/70 bg-[linear-gradient(180deg,hsl(var(--info))_0%,hsl(var(--info)/0.9)_100%)] text-info-foreground shadow-[inset_0_1px_0_hsl(var(--info-foreground)/0.18),0_14px_28px_-20px_hsl(var(--info)/0.8)] hover:brightness-105 focus-visible:ring-info/20",
         outline:
-          "border border-border/90 bg-card/90 shadow-[inset_0_1px_0_hsl(var(--background)/0.85)] hover:border-primary/40 hover:bg-secondary/60",
+          "border border-border/90 bg-[linear-gradient(180deg,hsl(var(--card)/0.95),hsl(var(--card)/0.86))] text-foreground shadow-[inset_0_1px_0_hsl(var(--background)/0.92),0_12px_24px_-22px_hsl(var(--foreground)/0.45)] hover:-translate-y-px hover:border-primary/25 hover:bg-secondary/78",
         secondary:
-          "border border-border/60 bg-secondary/90 text-secondary-foreground shadow-[inset_0_1px_0_hsl(var(--background)/0.72)] hover:bg-secondary",
+          "border border-border/60 bg-secondary/88 text-secondary-foreground shadow-[inset_0_1px_0_hsl(var(--background)/0.72)] hover:border-border hover:bg-secondary",
         ghost:
-          "hover:bg-accent/10 hover:text-accent-foreground",
+          "text-muted-foreground hover:bg-[hsl(var(--foreground)/0.05)] hover:text-foreground",
         link: "text-primary underline-offset-4 hover:underline font-medium",
       },
       size: {

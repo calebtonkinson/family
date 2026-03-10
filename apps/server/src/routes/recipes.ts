@@ -11,12 +11,15 @@ import { recipes } from "@home/db/schema";
 import { getTools } from "@home/ai";
 import {
   createRecipeSchema,
+  importRecipeFromFilesSchema,
+  importRecipeFromUrlSchema,
   updateRecipeSchema,
   recipeFilterSchema,
   idParamSchema,
   paginationSchema,
 } from "@home/shared";
 import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { extractRecipePage } from "../services/recipe-url-import.js";
 
 export const recipesRouter = new OpenAPIHono();
 
@@ -66,17 +69,6 @@ const parseTags = (queryTags?: string, queryTag?: string) => {
   return Array.from(tags);
 };
 
-const importRecipeFileSchema = z.object({
-  url: z.string().min(1),
-  mediaType: z.string().min(1),
-  filename: z.string().min(1).optional(),
-});
-
-const importRecipeFromFilesSchema = z.object({
-  files: z.array(importRecipeFileSchema).min(1).max(10),
-  prompt: z.string().trim().min(1).max(2000).optional(),
-});
-
 const importRecipeResponseSchema = z.object({
   recipe: z.object({
     id: z.string().uuid(),
@@ -84,6 +76,76 @@ const importRecipeResponseSchema = z.object({
   }),
   message: z.string().nullable(),
 });
+
+const createRecipeFromToolResult = async (
+  auth: { householdId: string; userId: string },
+  result: {
+    text?: string;
+    steps?: Array<{
+      toolCalls?: Array<{ toolCallId: string; toolName: string }>;
+      toolResults?: Array<{ toolCallId: string; output: unknown }>;
+    }>;
+  },
+  attachmentsToPersist: Array<{
+    url: string;
+    mediaType: string;
+    filename?: string;
+  }>,
+) => {
+  let createdRecipe: { id: string; title: string } | null = null;
+
+  for (const step of result.steps ?? []) {
+    const toolNameByCallId = new Map<string, string>();
+    for (const call of step.toolCalls ?? []) {
+      toolNameByCallId.set(call.toolCallId, call.toolName);
+    }
+
+    for (const toolResult of step.toolResults ?? []) {
+      const toolName = toolNameByCallId.get(toolResult.toolCallId);
+      if (toolName !== "createRecipe") continue;
+
+      const output = toolResult.output as
+        | {
+            success?: boolean;
+            recipe?: { id?: string; title?: string };
+          }
+        | undefined;
+
+      if (!output?.success) continue;
+      if (
+        output.recipe?.id &&
+        output.recipe?.title &&
+        typeof output.recipe.id === "string" &&
+        typeof output.recipe.title === "string"
+      ) {
+        createdRecipe = {
+          id: output.recipe.id,
+          title: output.recipe.title,
+        };
+      }
+    }
+  }
+
+  if (createdRecipe && attachmentsToPersist.length > 0) {
+    await db
+      .update(recipes)
+      .set({
+        attachmentsJson: attachmentsToPersist,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(recipes.id, createdRecipe.id),
+          eq(recipes.householdId, auth.householdId),
+        ),
+      );
+  }
+
+  return {
+    recipe: createdRecipe,
+    message: result.text || null,
+  };
+};
 
 // List recipes
 const listRecipesRoute = createRoute({
@@ -120,7 +182,10 @@ recipesRouter.openapi(listRecipesRoute, async (c) => {
 
   if (query.search) {
     const term = `%${query.search}%`;
-    const searchCondition = or(ilike(recipes.title, term), ilike(recipes.description, term));
+    const searchCondition = or(
+      ilike(recipes.title, term),
+      ilike(recipes.description, term),
+    );
     if (searchCondition) conditions.push(searchCondition);
   }
 
@@ -278,6 +343,180 @@ recipesRouter.openapi(createRecipeRoute, async (c) => {
   );
 });
 
+const importRecipeFromUrlRoute = createRoute({
+  method: "post",
+  path: "/import-from-url",
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: importRecipeFromUrlSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Recipe created from URL import",
+      content: {
+        "application/json": {
+          schema: z.object({ data: importRecipeResponseSchema }),
+        },
+      },
+    },
+    422: {
+      description: "Could not extract a recipe",
+      content: {
+        "application/json": {
+          schema: z.object({ error: z.string() }),
+        },
+      },
+    },
+  },
+});
+
+recipesRouter.openapi(importRecipeFromUrlRoute, async (c) => {
+  const auth = c.get("auth");
+  const body = c.req.valid("json");
+
+  let response: Response;
+  try {
+    response = await fetch(body.url, {
+      headers: {
+        accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5",
+        "user-agent":
+          "Mozilla/5.0 (compatible; HomeManagementRecipeImporter/1.0; +https://example.invalid)",
+      },
+      redirect: "follow",
+    });
+  } catch {
+    return c.json(
+      { error: "I couldn't reach that URL. Check the link and try again." },
+      422,
+    );
+  }
+
+  if (!response.ok) {
+    return c.json(
+      { error: `That URL returned ${response.status}. Try a different page.` },
+      422,
+    );
+  }
+
+  const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+  const rawBody = await response.text();
+
+  if (!rawBody.trim()) {
+    return c.json(
+      { error: "That page did not return any readable content." },
+      422,
+    );
+  }
+
+  const extractedPage = contentType.includes("text/html")
+    ? extractRecipePage(rawBody, body.url)
+    : {
+        title: null,
+        description: null,
+        siteName: (() => {
+          try {
+            return new URL(body.url).hostname.replace(/^www\./, "");
+          } catch {
+            return null;
+          }
+        })(),
+        imageUrl: null,
+        textContent: rawBody.slice(0, 20_000),
+        recipeJsonLd: null,
+      };
+
+  const attachmentsToPersist = [
+    {
+      url: body.url,
+      mediaType: "text/html",
+      filename:
+        extractedPage.title ?? extractedPage.siteName ?? "Original recipe",
+    },
+    ...(extractedPage.imageUrl
+      ? [
+          {
+            url: extractedPage.imageUrl,
+            mediaType: "image/external",
+            filename: `${extractedPage.title ?? "Recipe"} reference image`,
+          },
+        ]
+      : []),
+  ];
+
+  const tools = getTools({
+    householdId: auth.householdId,
+    userId: auth.userId,
+    db,
+  });
+
+  const textParts = [
+    "Import a recipe from this URL and save only the practical recipe card.",
+    `Source URL: ${body.url}`,
+    ...(body.prompt ? [`User instructions: ${body.prompt}`] : []),
+    ...(extractedPage.title ? [`Page title: ${extractedPage.title}`] : []),
+    ...(extractedPage.siteName ? [`Site: ${extractedPage.siteName}`] : []),
+    ...(extractedPage.description
+      ? [`Description: ${extractedPage.description}`]
+      : []),
+    extractedPage.recipeJsonLd
+      ? `Structured recipe data:\n${JSON.stringify(extractedPage.recipeJsonLd, null, 2)}`
+      : `Extracted page text:\n${extractedPage.textContent}`,
+  ];
+
+  const messages: Array<Omit<UIMessage, "id">> = [
+    {
+      role: "user",
+      parts: textParts.map((text) => ({ type: "text", text })),
+    },
+  ];
+
+  const modelMessages = await convertToModelMessages(messages, { tools });
+
+  const result = await generateText({
+    model: openai.chat("gpt-5.1"),
+    system: `You extract the essential recipe from webpage content.
+- Always call createRecipe exactly once when there is enough information.
+- Set source to "link".
+- Keep the saved recipe lean: ingredients, short instructions, and only brief notes for uncertainty.
+- Do not copy introductions, life story sections, ads, or long narrative text from the page.
+- If the source includes a lot of detail, summarize it into a practical household recipe card.`,
+    messages: modelMessages,
+    tools,
+    stopWhen: stepCountIs(5),
+  });
+
+  const { recipe, message } = await createRecipeFromToolResult(
+    auth,
+    result,
+    attachmentsToPersist,
+  );
+
+  if (!recipe) {
+    return c.json(
+      {
+        error:
+          "I couldn't turn that URL into a usable recipe. Try a more recipe-focused page or use file import.",
+      },
+      422,
+    );
+  }
+
+  return c.json(
+    {
+      data: {
+        recipe,
+        message,
+      },
+    },
+    201,
+  );
+});
+
 // Import recipe from files using AI without creating a conversation
 const importRecipeFromFilesRoute = createRoute({
   method: "post",
@@ -315,12 +554,15 @@ recipesRouter.openapi(importRecipeFromFilesRoute, async (c) => {
   const auth = c.get("auth");
   const body = c.req.valid("json");
   const attachmentsToPersist = body.files
-    .map((file) => ({
+    .map((file: { url: string; mediaType: string; filename?: string }) => ({
       url: file.url,
       mediaType: file.mediaType,
       filename: file.filename,
     }))
-    .filter((file) => file.url.trim().length > 0 && file.mediaType.trim().length > 0);
+    .filter(
+      (file: { url: string; mediaType: string }) =>
+        file.url.trim().length > 0 && file.mediaType.trim().length > 0,
+    );
 
   const normalizeFileUrl = (url: string) => {
     const match = url.match(/^data:(.+?);base64,(.*)$/);
@@ -376,10 +618,7 @@ recipesRouter.openapi(importRecipeFromFilesRoute, async (c) => {
   const messages: Array<Omit<UIMessage, "id">> = [
     {
       role: "user",
-      parts: [
-        { type: "text", text: userPrompt },
-        ...fileParts,
-      ],
+      parts: [{ type: "text", text: userPrompt }, ...fileParts],
     },
   ];
 
@@ -397,41 +636,13 @@ recipesRouter.openapi(importRecipeFromFilesRoute, async (c) => {
     stopWhen: stepCountIs(5),
   });
 
-  let createdRecipe: { id: string; title: string } | null = null;
+  const { recipe, message } = await createRecipeFromToolResult(
+    auth,
+    result,
+    attachmentsToPersist,
+  );
 
-  for (const step of result.steps ?? []) {
-    const toolNameByCallId = new Map<string, string>();
-    for (const call of step.toolCalls ?? []) {
-      toolNameByCallId.set(call.toolCallId, call.toolName);
-    }
-
-    for (const toolResult of step.toolResults ?? []) {
-      const toolName = toolNameByCallId.get(toolResult.toolCallId);
-      if (toolName !== "createRecipe") continue;
-
-      const output = toolResult.output as
-        | {
-            success?: boolean;
-            recipe?: { id?: string; title?: string };
-          }
-        | undefined;
-
-      if (!output?.success) continue;
-      if (
-        output.recipe?.id &&
-        output.recipe?.title &&
-        typeof output.recipe.id === "string" &&
-        typeof output.recipe.title === "string"
-      ) {
-        createdRecipe = {
-          id: output.recipe.id,
-          title: output.recipe.title,
-        };
-      }
-    }
-  }
-
-  if (!createdRecipe) {
+  if (!recipe) {
     return c.json(
       {
         error:
@@ -441,26 +652,11 @@ recipesRouter.openapi(importRecipeFromFilesRoute, async (c) => {
     );
   }
 
-  if (attachmentsToPersist.length > 0) {
-    await db
-      .update(recipes)
-      .set({
-        attachmentsJson: attachmentsToPersist,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(recipes.id, createdRecipe.id),
-          eq(recipes.householdId, auth.householdId),
-        ),
-      );
-  }
-
   return c.json(
     {
       data: {
-        recipe: createdRecipe,
-        message: result.text || null,
+        recipe,
+        message,
       },
     },
     201,
